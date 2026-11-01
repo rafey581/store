@@ -1,0 +1,16 @@
+{
+  "name": "store",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "db:validate": "prisma validate",
+    "db:format": "prisma format",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy"
+  },
+  "devDependencies": {
+    "prisma": "7.10.1",
+    "dotenv": "^16.4.5"
+  }
+}

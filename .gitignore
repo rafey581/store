@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+.env
+.env*.local
+src/generated/
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+mobile/.expo/
+mobile/android/
+mobile/ios/

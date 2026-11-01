@@ -1,0 +1,725 @@
+// =============================================================================
+// Store — database schema (PostgreSQL on Supabase, Prisma ORM)
+//
+// Conventions
+// - Every money field is an Int in PAISA (1 PKR = 100 paisa). Field names end
+//   in "Paisa" so a rupee value can't be stored by mistake.
+//   Int max = 2,147,483,647 paisa ≈ PKR 21.47 million per field.
+// - IDs are cuid strings. Orders also get a short, human-readable `number`.
+// - Order lines and addresses are SNAPSHOTS: editing a product later never
+//   changes an existing order.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum Role {
+  CUSTOMER
+  STAFF
+  OWNER
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT // created, waiting for gateway payment or a manual proof
+  PAYMENT_REVIEW // manual transfer proof uploaded, waiting for admin
+  PAID // payment confirmed (gateway callback or admin approval)
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  EXPIRED // unpaid past expiresAt; stock released
+  REFUNDED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING_VERIFICATION
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  SAFEPAY // card, hosted checkout
+  PAYFAST // card, hosted checkout
+  JAZZCASH // wallet
+  EASYPAISA // wallet
+  MANUAL_TRANSFER // bank or wallet transfer + screenshot proof
+}
+
+enum PaymentAttemptStatus {
+  INITIATED // record created, customer not yet redirected
+  PENDING // customer at gateway / waiting for callback
+  SUCCEEDED // verified server-side only
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum ProofStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ActorType {
+  SYSTEM
+  CUSTOMER
+  ADMIN
+  GATEWAY
+}
+
+enum CouponType {
+  PERCENT // value = basis points (1000 = 10.00%)
+  FIXED // value = paisa
+  FREE_SHIPPING // value unused
+}
+
+enum InventoryReason {
+  ORDER_RESERVED // stock taken when the order is placed
+  ORDER_RELEASED // order expired or was cancelled before shipping
+  ADMIN_ADJUST
+  RETURN
+}
+
+enum ManualAccountType {
+  BANK
+  WALLET
+}
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+}
+
+// -----------------------------------------------------------------------------
+// Users & auth
+// Web: Auth.js (credentials provider, JWT session cookie).
+// Mobile: short-lived access JWT + rotating refresh token (RefreshToken).
+// -----------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique // stored lower-cased
+  name          String?
+  phone         String?
+  passwordHash  String? // null = guest-created account that never set a password
+  role          Role      @default(CUSTOMER)
+  emailVerified DateTime?
+  disabledAt    DateTime? // staff/customer blocked from signing in
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  addresses          Address[]
+  orders             Order[]
+  cart               Cart?
+  refreshTokens      RefreshToken[]
+  passwordResets     PasswordResetToken[]
+  pushDevices        PushDevice[]
+  reviewedProofs     PaymentProof[]       @relation("ProofReviewer")
+  statusEvents       OrderStatusEvent[]
+  inventoryMovements InventoryMovement[]
+  couponRedemptions  CouponRedemption[]
+  auditLogs          AuditLog[]
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique // SHA-256 of the token; raw token never stored
+  deviceName String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String? // id of the token issued on rotation
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PushDevice {
+  id            String         @id @default(cuid())
+  userId        String
+  expoPushToken String         @unique
+  platform      DevicePlatform @default(ANDROID)
+  notifyOrders  Boolean        @default(true)
+  notifyProofs  Boolean        @default(true)
+  lastSeenAt    DateTime       @default(now())
+  createdAt     DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  userId     String
+  fullName   String
+  phone      String // e.g. 03001234567
+  line1      String
+  line2      String?
+  city       String
+  province   String?
+  postalCode String?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// -----------------------------------------------------------------------------
+// Catalog
+// Every product has at least one variant. A product with no options gets one
+// "Default" variant, so price and stock always live on ProductVariant.
+// -----------------------------------------------------------------------------
+
+model Category {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  description    String?
+  imageUrl       String?
+  parentId       String?
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([parentId])
+}
+
+model Product {
+  id             String        @id @default(cuid())
+  name           String
+  slug           String        @unique
+  description    String        @default("") // sanitized HTML / markdown
+  status         ProductStatus @default(DRAFT)
+  categoryId     String?
+  isFeatured     Boolean       @default(false)
+  seoTitle       String?
+  seoDescription String?
+  // Denormalized from variants for fast listing/sorting; updated on save.
+  minPricePaisa  Int           @default(0)
+  maxPricePaisa  Int           @default(0)
+  totalStock     Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  category Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  options  ProductOption[]
+  variants ProductVariant[]
+  images   ProductImage[]
+
+  @@index([status, categoryId])
+  @@index([isFeatured])
+}
+
+model ProductImage {
+  id         String   @id @default(cuid())
+  productId  String
+  url        String
+  storageKey String // Supabase Storage object path, used for deletion
+  alt        String?
+  position   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  product  Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variants ProductVariant[]
+
+  @@index([productId, position])
+}
+
+// e.g. "Size", "Color"
+model ProductOption {
+  id        String @id @default(cuid())
+  productId String
+  name      String
+  position  Int    @default(0)
+
+  product Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values  ProductOptionValue[]
+
+  @@unique([productId, name])
+}
+
+// e.g. "M", "Red"
+model ProductOptionValue {
+  id       String @id @default(cuid())
+  optionId String
+  value    String
+  position Int    @default(0)
+
+  option   ProductOption        @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  variants VariantOptionValue[]
+
+  @@unique([optionId, value])
+}
+
+model ProductVariant {
+  id                  String   @id @default(cuid())
+  productId           String
+  sku                 String   @unique
+  title               String // "M / Red" or "Default"
+  pricePaisa          Int
+  compareAtPricePaisa Int? // shown struck-through when > price
+  costPaisa           Int? // admin-only, for margin reports
+  stock               Int      @default(0) // sellable units; reduced when an order is placed
+  lowStockThreshold   Int? // overrides the store default
+  weightGrams         Int?
+  imageId             String?
+  isActive            Boolean  @default(true)
+  position            Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  product            Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  image              ProductImage?        @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  optionValues       VariantOptionValue[]
+  cartItems          CartItem[]
+  orderItems         OrderItem[]
+  inventoryMovements InventoryMovement[]
+
+  @@index([productId])
+  @@index([stock])
+}
+
+model VariantOptionValue {
+  variantId     String
+  optionValueId String
+
+  variant     ProductVariant     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  optionValue ProductOptionValue @relation(fields: [optionValueId], references: [id], onDelete: Cascade)
+
+  @@id([variantId, optionValueId])
+}
+
+// Append-only ledger of every stock change.
+model InventoryMovement {
+  id        String          @id @default(cuid())
+  variantId String
+  delta     Int // negative = stock out
+  reason    InventoryReason
+  orderId   String?
+  actorId   String?
+  note      String?
+  createdAt DateTime        @default(now())
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  order   Order?         @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  actor   User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([variantId, createdAt])
+  @@index([orderId])
+}
+
+// -----------------------------------------------------------------------------
+// Cart & coupons
+// Guest carts are keyed by an httpOnly cookie token; merged into the user's
+// cart on login. Cart prices are NOT stored — they are re-read at checkout.
+// -----------------------------------------------------------------------------
+
+model Cart {
+  id         String   @id @default(cuid())
+  userId     String?  @unique
+  guestToken String?  @unique
+  couponCode String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@index([updatedAt])
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  variantId String
+  quantity  Int
+  createdAt DateTime @default(now())
+
+  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, variantId])
+}
+
+model Coupon {
+  id               String     @id @default(cuid())
+  code             String     @unique // stored upper-cased
+  description      String?
+  type             CouponType
+  value            Int        @default(0) // PERCENT: basis points; FIXED: paisa
+  minSubtotalPaisa Int        @default(0)
+  maxDiscountPaisa Int? // cap for PERCENT coupons
+  startsAt         DateTime?
+  endsAt           DateTime?
+  usageLimit       Int? // total redemptions allowed
+  perCustomerLimit Int? // per email address
+  usedCount        Int        @default(0)
+  isActive         Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  redemptions CouponRedemption[]
+}
+
+// One row per order that used a coupon. Released (deleted) if the order
+// expires or is cancelled unpaid.
+model CouponRedemption {
+  id        String   @id @default(cuid())
+  couponId  String
+  orderId   String   @unique
+  userId    String?
+  email     String
+  createdAt DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([couponId, email])
+}
+
+// -----------------------------------------------------------------------------
+// Shipping
+// Flat rate per city. Unknown cities fall back to StoreSettings.defaultShippingPaisa.
+// -----------------------------------------------------------------------------
+
+model ShippingRate {
+  id                     String   @id @default(cuid())
+  city                   String // display name, e.g. "Lahore"
+  cityKey                String   @unique // normalized lower-case lookup key
+  province               String?
+  feePaisa               Int
+  freeShippingAbovePaisa Int? // overrides the store-wide threshold for this city
+  minDays                Int      @default(2)
+  maxDays                Int      @default(5)
+  isActive               Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// Orders
+// -----------------------------------------------------------------------------
+
+model Order {
+  id            String        @id @default(cuid())
+  number        Int           @unique @default(autoincrement()) // shown as #100123 (offset applied in UI)
+  trackingToken String        @unique @default(cuid()) // lets guests open their order page
+  userId        String?
+  status        OrderStatus   @default(PENDING_PAYMENT)
+  paymentStatus PaymentStatus @default(UNPAID)
+  paymentMethod PaymentMethod
+
+  // Customer + shipping snapshot
+  email          String
+  customerName   String
+  phone          String
+  shipLine1      String
+  shipLine2      String?
+  shipCity       String
+  shipProvince   String?
+  shipPostalCode String?
+  customerNote   String?
+
+  // Amounts, all computed on the server at order creation
+  subtotalPaisa Int
+  discountPaisa Int     @default(0)
+  shippingPaisa Int     @default(0)
+  totalPaisa    Int
+  currency      String  @default("PKR")
+  couponCode    String?
+
+  // Fulfilment
+  courierName    String?
+  trackingNumber String?
+  trackingUrl    String?
+  adminNote      String?
+
+  expiresAt   DateTime? // unpaid orders are expired after this and stock is released
+  paidAt      DateTime?
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user               User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items              OrderItem[]
+  statusEvents       OrderStatusEvent[]
+  payments           Payment[]
+  proofs             PaymentProof[]
+  inventoryMovements InventoryMovement[]
+  couponRedemption   CouponRedemption?
+  emails             EmailLog[]
+
+  @@index([status, createdAt])
+  @@index([paymentStatus])
+  @@index([userId])
+  @@index([email])
+  @@index([expiresAt])
+}
+
+model OrderItem {
+  id             String  @id @default(cuid())
+  orderId        String
+  variantId      String? // null if the variant was later deleted
+  productName    String
+  variantTitle   String
+  sku            String
+  imageUrl       String?
+  unitPricePaisa Int
+  quantity       Int
+  lineTotalPaisa Int
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+// Full status history, shown to admins and (filtered) to the customer.
+model OrderStatusEvent {
+  id         String       @id @default(cuid())
+  orderId    String
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  actorType  ActorType
+  actorId    String?
+  note       String?
+  isPublic   Boolean      @default(true) // visible on the customer tracking page
+  createdAt  DateTime     @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+}
+
+// -----------------------------------------------------------------------------
+// Payments (one module, several providers)
+// An order can have several attempts (e.g. card failed, then JazzCash).
+// Only a verified server-side callback or an admin approval sets SUCCEEDED.
+// -----------------------------------------------------------------------------
+
+model Payment {
+  id            String               @id @default(cuid())
+  orderId       String
+  method        PaymentMethod
+  status        PaymentAttemptStatus @default(INITIATED)
+  amountPaisa   Int // copied from Order.totalPaisa on the server; callback amount must match
+  // Our reference sent to the gateway (unique per provider) and the gateway's own transaction id
+  reference     String               @unique
+  providerTxnId String?
+  failureReason String?
+  initPayload   Json? // request/response at initiation (secrets stripped)
+  paidAt        DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  order  Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  events PaymentEvent[]
+  proofs PaymentProof[]
+
+  @@unique([method, providerTxnId])
+  @@index([orderId])
+  @@index([status, createdAt])
+}
+
+// Every inbound callback/IPN is logged here first. The unique (method, eventKey)
+// makes processing idempotent: a replayed callback hits the constraint and is
+// acknowledged without changing anything.
+model PaymentEvent {
+  id             String        @id @default(cuid())
+  method         PaymentMethod
+  eventKey       String // provider txn id + status, or provider event id
+  paymentId      String?
+  signatureValid Boolean
+  payload        Json
+  result         String? // "applied", "duplicate", "amount_mismatch", "invalid_signature", ...
+  processedAt    DateTime?
+  createdAt      DateTime      @default(now())
+
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@unique([method, eventKey])
+  @@index([paymentId])
+}
+
+// Bank / wallet accounts shown to customers who choose manual transfer.
+model ManualPaymentAccount {
+  id            String            @id @default(cuid())
+  type          ManualAccountType
+  label         String // "Meezan Bank", "JazzCash Wallet"
+  accountTitle  String
+  accountNumber String
+  iban          String?
+  instructions  String?
+  isActive      Boolean           @default(true)
+  sortOrder     Int               @default(0)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  proofs PaymentProof[]
+}
+
+model PaymentProof {
+  id                 String      @id @default(cuid())
+  orderId            String
+  paymentId          String?
+  accountId          String? // which of our accounts the customer paid into
+  transactionId      String
+  payerName          String?
+  amountClaimedPaisa Int
+  screenshotKey      String // private Supabase Storage path; served via signed URL to admins only
+  status             ProofStatus @default(PENDING)
+  reviewedById       String?
+  reviewedAt         DateTime?
+  rejectionReason    String?
+  createdAt          DateTime    @default(now())
+
+  order      Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment    Payment?              @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  account    ManualPaymentAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  reviewedBy User?                 @relation("ProofReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([orderId])
+  @@index([transactionId]) // admin UI warns when the same txn id is reused
+}
+
+// -----------------------------------------------------------------------------
+// Store settings (single row, id = 1)
+// Gateway credentials are NOT here — they live only in environment variables.
+// -----------------------------------------------------------------------------
+
+model StoreSettings {
+  id                     Int      @id @default(1)
+  storeName              String   @default("My Store")
+  logoUrl                String?
+  supportEmail           String?
+  supportPhone           String?
+  whatsappNumber         String?
+  address                String?
+  defaultShippingPaisa   Int      @default(25000) // PKR 250
+  freeShippingAbovePaisa Int? // store-wide free-shipping threshold
+  lowStockThreshold      Int      @default(5)
+  gatewayOrderExpiryMins Int      @default(60) // card / wallet orders
+  manualOrderExpiryHours Int      @default(48) // time allowed to upload a transfer proof
+  enableSafepay          Boolean  @default(false)
+  enablePayfast          Boolean  @default(false)
+  enableJazzcash         Boolean  @default(false)
+  enableEasypaisa        Boolean  @default(false)
+  enableManualTransfer   Boolean  @default(true)
+  orderEmailBcc          String? // staff address copied on new-order emails
+  updatedAt              DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// Analytics (dashboard visitor counters)
+// Visitor = anonymous cookie id. "Live" = lastSeenAt within the last 5 minutes.
+// No IP addresses are stored.
+// -----------------------------------------------------------------------------
+
+model Visitor {
+  id          String   @id // random id from the visitor cookie
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  lastPath    String?
+  pageViews   Int      @default(1)
+
+  @@index([lastSeenAt])
+}
+
+model DailyStat {
+  date         DateTime @id @db.Date // Asia/Karachi calendar day
+  visitors     Int      @default(0)
+  pageViews    Int      @default(0)
+  orders       Int      @default(0)
+  revenuePaisa Int      @default(0) // paid orders only
+}
+
+// -----------------------------------------------------------------------------
+// Logs
+// -----------------------------------------------------------------------------
+
+model EmailLog {
+  id        String      @id @default(cuid())
+  to        String
+  template  String // "order_placed", "proof_approved", ...
+  subject   String
+  status    EmailStatus @default(QUEUED)
+  error     String?
+  orderId   String?
+  createdAt DateTime    @default(now())
+
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+// Who changed what in the admin panel / mobile app.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String // "product.update", "proof.approve", "staff.create", ...
+  entityType String
+  entityId   String?
+  data       Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
