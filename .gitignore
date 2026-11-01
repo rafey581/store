@@ -12,3 +12,4 @@ next-env.d.ts
 mobile/.expo/
 mobile/android/
 mobile/ios/
+.data/

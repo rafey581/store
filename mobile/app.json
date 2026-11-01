@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Store Admin",
+    "slug": "store-admin",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "storeadmin",
+    "android": {
+      "package": "pk.store.admin",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
+        "backgroundColor": "#059669"
+      },
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "pk.store.admin",
+      "supportsTablet": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#059669"
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "https://yourstore.pk",
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}

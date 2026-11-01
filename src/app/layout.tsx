@@ -1,0 +1,28 @@
+import type { Metadata, Viewport } from "next";
+import "@fontsource-variable/plus-jakarta-sans";
+import "./globals.css";
+import { getSettings } from "@/server/settings";
+import { siteUrl } from "@/lib/utils";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const s = await getSettings();
+  return {
+    metadataBase: new URL(siteUrl()),
+    title: { default: s.storeName, template: `%s | ${s.storeName}` },
+    description: `Shop online at ${s.storeName}. Delivery across Pakistan.`,
+    openGraph: { siteName: s.storeName, type: "website", locale: "en_PK" },
+  };
+}
+
+// Pages read store settings and the cart, so render on request (also keeps builds independent of the database).
+export const dynamic = "force-dynamic";
+
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#0b1220" };
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body className="min-h-screen">{children}</body>
+    </html>
+  );
+}

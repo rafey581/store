@@ -61,6 +61,7 @@ enum PaymentMethod {
   JAZZCASH // wallet
   EASYPAISA // wallet
   MANUAL_TRANSFER // bank or wallet transfer + screenshot proof
+  COD // cash on delivery; marked paid when staff confirm the cash was collected
 }
 
 enum PaymentAttemptStatus {
@@ -121,17 +122,18 @@ enum DevicePlatform {
 // -----------------------------------------------------------------------------
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique // stored lower-cased
-  name          String?
-  phone         String?
-  passwordHash  String? // null = guest-created account that never set a password
-  role          Role      @default(CUSTOMER)
-  emailVerified DateTime?
-  disabledAt    DateTime? // staff/customer blocked from signing in
-  lastLoginAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  email             String    @unique // stored lower-cased
+  name              String?
+  phone             String?
+  passwordHash      String? // null = guest-created account that never set a password
+  role              Role      @default(CUSTOMER)
+  emailVerified     DateTime?
+  disabledAt        DateTime? // staff/customer blocked from signing in
+  lastLoginAt       DateTime?
+  passwordChangedAt DateTime? // web sessions issued before this are rejected
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   addresses          Address[]
   orders             Order[]
@@ -476,6 +478,7 @@ model Order {
   subtotalPaisa Int
   discountPaisa Int     @default(0)
   shippingPaisa Int     @default(0)
+  codFeePaisa   Int     @default(0)
   totalPaisa    Int
   currency      String  @default("PKR")
   couponCode    String?
@@ -662,6 +665,12 @@ model StoreSettings {
   enableEasypaisa        Boolean  @default(false)
   enableManualTransfer   Boolean  @default(true)
   orderEmailBcc          String? // staff address copied on new-order emails
+  enableCod              Boolean  @default(false)
+  codFeePaisa            Int      @default(0) // extra charge for cash on delivery
+  codMaxOrderPaisa       Int? // COD not offered above this total
+  heroTitle              String?
+  heroSubtitle           String?
+  announcement           String? // thin bar above the header, e.g. "Free delivery over Rs 5,000"
   updatedAt              DateTime @updatedAt
 }
 
@@ -722,4 +731,25 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// Fixed-window rate limiter (login, registration, proof uploads, order lookup).
+model RateLimit {
+  key     String   @id // e.g. "login:ip:1.2.3.4"
+  count   Int      @default(0)
+  resetAt DateTime
+}
+
+// Editable content pages (About, Contact, policies). Content is plain text with
+// "## " headings and "- " bullets; rendered without HTML.
+model Page {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  title        String
+  content      String
+  isPublished  Boolean  @default(true)
+  showInFooter Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

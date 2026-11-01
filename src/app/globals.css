@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #34d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+  --color-brand-800: #065f46;
+  --color-brand-900: #064e3b;
+
+  --color-ink-900: #0b1220;
+  --color-ink-800: #111a2e;
+  --color-ink-700: #1c2740;
+  --color-ink-600: #2c3a57;
+
+  --color-sand-50: #faf9f6;
+  --color-sand-100: #f4f2ec;
+
+  --color-sale: #e11d48;
+  --color-gold: #f59e0b;
+
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 12px rgb(15 23 42 / 0.06);
+  --shadow-lift: 0 2px 4px rgb(15 23 42 / 0.04), 0 12px 32px -8px rgb(15 23 42 / 0.18);
+  --shadow-glow: 0 10px 40px -10px rgb(5 150 105 / 0.55);
+}
+
+/* Gradient interpolation tokens with a safe fallback for older browsers. */
+:root {
+  --in-oklab: ;
+}
+@supports (background: linear-gradient(in oklab, white, black)) {
+  :root {
+    --in-oklab: in oklab;
+  }
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+body {
+  @apply bg-white font-sans text-ink-900 antialiased;
+  font-feature-settings: "ss01", "cv11";
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+/* Hero: deep ink with emerald/teal glows. */
+.bg-hero {
+  background:
+    radial-gradient(60% 80% at 85% 10%, rgb(16 185 129 / 0.35), transparent 60%),
+    radial-gradient(50% 60% at 10% 100%, rgb(45 212 191 / 0.22), transparent 60%),
+    linear-gradient(135deg var(--in-oklab), var(--color-ink-900), var(--color-ink-700));
+}
+.bg-promo {
+  background: linear-gradient(120deg var(--in-oklab), var(--color-brand-700), var(--color-brand-500));
+}
+.bg-dots {
+  --dot: radial-gradient(circle, rgb(255 255 255 / 0.12) 1px, transparent 1.5px);
+  background-image: var(--dot);
+  background-size: 22px 22px;
+}
+.text-gradient {
+  background: linear-gradient(90deg var(--in-oklab), #6ee7b7, #5eead4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Decorative scroll reveal (progressive enhancement, no fallback needed). */
+@media (prefers-reduced-motion: no-preference) {
+  @supports ((animation-timeline: view()) and (animation-range: entry)) {
+    @keyframes reveal-up {
+      from {
+        opacity: 0;
+        translate: 0 24px;
+      }
+    }
+    .reveal {
+      animation: reveal-up auto ease-out backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+  }
+}
+
+/* Hide native scrollbar on horizontal chip rows while keeping them scrollable. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+dialog.drawer {
+  margin: 0;
+  max-height: 100dvh;
+  height: 100dvh;
+  max-width: 22rem;
+  width: 85vw;
+  padding: 0;
+  border: 0;
+}
+dialog.drawer::backdrop {
+  background: rgb(11 18 32 / 0.55);
+  backdrop-filter: blur(2px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  dialog.drawer[open] {
+    animation: drawer-in 0.22s ease-out;
+  }
+  @keyframes drawer-in {
+    from {
+      translate: -100% 0;
+    }
+  }
+}
+
+.prose-store p { @apply mb-3 leading-relaxed; }
+.prose-store ul { @apply mb-3 list-disc pl-5; }
