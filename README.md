@@ -3,7 +3,7 @@
 E-commerce website for selling physical products in Pakistan. Prices in PKR (stored as integer paisa), mobile-first storefront, admin panel, five payment methods.
 
 - **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · PostgreSQL (Supabase) · Prisma 7 · Zod · Auth.js
-- **Docs:** [Architecture](docs/ARCHITECTURE.md) · [Payments and go-live checklist](docs/PAYMENTS.md) · [Android admin app](docs/MOBILE.md)
+- **Docs:** [Architecture](docs/ARCHITECTURE.md) · [Payments and go-live checklist](docs/PAYMENTS.md) · [Android admin app](docs/MOBILE.md) · [Deploy on AWS EC2](docs/DEPLOY-EC2.md) · [Build the APK](docs/APK-PROMPT.md)
 
 | Status | |
 |---|---|
