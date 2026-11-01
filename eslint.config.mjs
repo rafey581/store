@@ -1,2 +1,3 @@
 import next from "eslint-config-next";
-export default [...next, { ignores: ["src/generated/**", "mobile/**"] }];
+const config = [...next, { ignores: ["src/generated/**", "mobile/**"] }];
+export default config;

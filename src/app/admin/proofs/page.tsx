@@ -7,12 +7,16 @@ import { ProofReview } from "@/components/admin/proof-review";
 
 export const metadata = { title: "Payment proofs" };
 
+function minutesAgo(m: number) {
+  return new Date(Date.now() - m * 60_000);
+}
+
 export default async function ProofsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   await requireStaff("proofs");
   const sp = await searchParams;
   const status = sp.status === "APPROVED" || sp.status === "REJECTED" ? sp.status : "PENDING";
   // Pending view also keeps proofs reviewed in the last 30 minutes so the reviewer sees the result.
-  const where: Prisma.PaymentProofWhereInput = status === "PENDING" ? { OR: [{ status: "PENDING" as const }, { reviewedAt: { gte: new Date(Date.now() - 30 * 60_000) } }] } : { status };
+  const where: Prisma.PaymentProofWhereInput = status === "PENDING" ? { OR: [{ status: "PENDING" as const }, { reviewedAt: { gte: minutesAgo(30) } }] } : { status };
   const proofs = await db.paymentProof.findMany({ where, orderBy: { createdAt: status === "PENDING" ? "asc" : "desc" }, take: 50, include: { order: { select: { id: true, number: true, totalPaisa: true } }, account: true, reviewedBy: { select: { name: true, email: true } } } });
   const txnIds = proofs.map((p) => p.transactionId);
   const all = txnIds.length ? await db.paymentProof.findMany({ where: { transactionId: { in: txnIds } }, select: { transactionId: true, orderId: true, order: { select: { number: true } } } }) : [];
