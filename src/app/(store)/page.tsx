@@ -6,7 +6,6 @@ import { ProductGrid } from "@/components/store/product-card";
 import { getSettings } from "@/server/settings";
 
 
-export const revalidate = 60;
 
 export default async function HomePage() {
   const [settings, categories, featured, latest] = await Promise.all([

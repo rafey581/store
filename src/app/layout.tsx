@@ -13,6 +13,9 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// Pages read store settings and the cart, so render on request (also keeps builds independent of the database).
+export const dynamic = "force-dynamic";
+
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#059669" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
