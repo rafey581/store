@@ -1,51 +1,51 @@
 import Link from "next/link";
+import { Search, ShoppingBag, User, Package, LayoutDashboard } from "lucide-react";
 import { getNavCategories } from "@/server/catalog";
 import { cartCount } from "@/server/cart";
 import { getSettings } from "@/server/settings";
 import { auth } from "@/auth";
+import { Logo } from "./logo";
+import { MobileMenu } from "./mobile-menu";
 
 export async function StoreHeader() {
   const [settings, categories, count, session] = await Promise.all([getSettings(), getNavCategories(), cartCount(), auth()]);
   const role = (session?.user as { role?: string } | undefined)?.role;
+  const isStaff = role === "OWNER" || role === "STAFF";
   return (
-    <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
-        <details className="relative md:hidden">
-          <summary className="list-none cursor-pointer rounded-lg p-2 hover:bg-gray-100" aria-label="Menu">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </summary>
-          <nav className="absolute left-0 top-11 w-64 rounded-xl border bg-white p-3 shadow-lg">
-            {categories.map((c) => (
-              <Link key={c.id} href={`/c/${c.slug}`} className="block rounded-lg px-3 py-2 text-sm hover:bg-gray-50">{c.name}</Link>
-            ))}
-            <hr className="my-2" />
-            <Link href="/track" className="block rounded-lg px-3 py-2 text-sm hover:bg-gray-50">Track order</Link>
-          </nav>
-        </details>
-        <Link href="/" className="shrink-0 text-lg font-bold tracking-tight text-brand-700">{settings.storeName}</Link>
-        <form action="/search" className="mx-2 hidden flex-1 md:block" role="search">
-          <input name="q" type="search" placeholder="Search products" aria-label="Search products" className="w-full rounded-full border border-gray-300 bg-gray-50 px-4 py-2 text-sm focus:border-brand-600 focus:bg-white focus:outline-none" />
+    <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/85 backdrop-blur-xl supports-[backdrop-filter]:bg-white/75">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 lg:h-[72px]">
+        <MobileMenu categories={categories} storeName={settings.storeName} signedIn={Boolean(session?.user)} />
+        <Logo name={settings.storeName} />
+        <form action="/search" className="mx-6 hidden max-w-xl flex-1 lg:block" role="search">
+          <label className="group flex items-center gap-2 rounded-full border border-transparent bg-gray-100 px-4 py-2.5 transition focus-within:border-brand-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-brand-600/10">
+            <Search size={18} className="text-gray-500" />
+            <input name="q" type="search" placeholder="Search for products, brands and more" aria-label="Search products" className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500" />
+          </label>
         </form>
-        <nav className="ml-auto flex items-center gap-1 text-sm">
-          {(role === "OWNER" || role === "STAFF") && <Link href="/admin" className="hidden rounded-lg px-3 py-2 font-medium text-gray-700 hover:bg-gray-100 sm:block">Admin</Link>}
-          <Link href={session?.user ? "/account" : "/login"} className="rounded-lg px-3 py-2 font-medium text-gray-700 hover:bg-gray-100">{session?.user ? "Account" : "Sign in"}</Link>
-          <Link href="/cart" className="relative rounded-lg px-3 py-2 font-medium text-gray-700 hover:bg-gray-100" aria-label={`Cart, ${count} items`}>
-            Cart
-            {count > 0 && <span className="ml-1 rounded-full bg-brand-600 px-1.5 py-0.5 text-xs font-bold text-white">{count}</span>}
+        <nav className="ml-auto flex items-center gap-1" aria-label="Account">
+          <Link href="/search" className="grid h-10 w-10 place-items-center rounded-xl hover:bg-gray-100 lg:hidden" aria-label="Search"><Search size={20} /></Link>
+          {isStaff && (
+            <Link href="/admin" className="hidden items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold hover:bg-gray-100 md:flex"><LayoutDashboard size={18} /> Admin</Link>
+          )}
+          <Link href="/track" className="hidden items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold hover:bg-gray-100 md:flex"><Package size={18} /> Track</Link>
+          <Link href={session?.user ? "/account" : "/login"} className="flex h-10 items-center gap-2 rounded-xl px-2.5 text-sm font-semibold hover:bg-gray-100 sm:px-3" aria-label={session?.user ? "My account" : "Sign in"}>
+            <User size={20} /> <span className="hidden sm:inline">{session?.user ? "Account" : "Sign in"}</span>
+          </Link>
+          <Link href="/cart" className="relative flex h-10 items-center gap-2 rounded-xl bg-ink-900 px-3 text-sm font-semibold text-white transition hover:bg-ink-700" aria-label={`Cart, ${count} items`}>
+            <ShoppingBag size={19} />
+            <span className="hidden sm:inline">Cart</span>
+            {count > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand-500 px-1 text-[11px] font-bold">{count}</span>}
           </Link>
         </nav>
       </div>
-      <div className="px-4 pb-3 md:hidden">
-        <form action="/search" role="search">
-          <input name="q" type="search" placeholder="Search products" aria-label="Search products" className="w-full rounded-full border border-gray-300 bg-gray-50 px-4 py-2 text-sm focus:outline-none" />
-        </form>
-      </div>
-      <nav className="hidden border-t border-gray-100 md:block" aria-label="Categories">
-        <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 py-1.5 text-sm">
+      <nav className="hidden border-t border-gray-100 lg:block" aria-label="Categories">
+        <div className="no-scrollbar mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-4">
+          <Link href="/search" className="whitespace-nowrap px-3 py-3 text-sm font-semibold text-ink-900 hover:text-brand-700">All products</Link>
           {categories.map((c) => (
-            <Link key={c.id} href={`/c/${c.slug}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 text-gray-700 hover:bg-gray-100">{c.name}</Link>
+            <Link key={c.id} href={`/c/${c.slug}`} className="relative whitespace-nowrap px-3 py-3 text-sm font-medium text-gray-600 transition after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:origin-left after:scale-x-0 after:rounded-full after:bg-brand-600 after:transition hover:text-ink-900 hover:after:scale-x-100">
+              {c.name}
+            </Link>
           ))}
-          <Link href="/track" className="ml-auto whitespace-nowrap rounded-lg px-3 py-1.5 text-gray-700 hover:bg-gray-100">Track order</Link>
         </div>
       </nav>
     </header>

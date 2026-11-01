@@ -1,5 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
 import { findCart, getOrCreateCartId } from "@/server/cart";
 import { checkoutSchema, placeOrder, quoteCart, CheckoutError } from "@/server/orders";
@@ -43,6 +44,7 @@ export async function placeOrderAction(_prev: ActionState, formData: FormData): 
     await db.address.create({ data: { userId: user.id, fullName: input.customerName, phone: input.phone, line1: input.shipLine1, line2: input.shipLine2, city: input.shipCity, province: input.shipProvince, postalCode: input.shipPostalCode, isDefault: count === 0 } });
   }
   await notifyOrder(order.id, "placed");
+  revalidatePath("/", "layout"); // refresh the header cart count (cart is now empty)
 
   if (input.paymentMethod === "MANUAL_TRANSFER" || input.paymentMethod === "COD") redirect(`/order/${order.trackingToken}?placed=1`);
   redirect(`/order/${order.trackingToken}?placed=1&pay=${input.paymentMethod}`);

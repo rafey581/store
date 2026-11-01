@@ -5,6 +5,7 @@ import { db } from "@/server/db";
 import { listProducts, parseSort } from "@/server/catalog";
 import { ProductGrid } from "@/components/store/product-card";
 import { FilterBar } from "@/components/store/filter-bar";
+import { Breadcrumbs } from "@/components/store/breadcrumbs";
 import { Pagination } from "@/components/ui/pagination";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ sort?: string; page?: string; min?: string; max?: string; inStock?: string }> };
@@ -32,19 +33,19 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   const result = await listProducts({ where: { categoryId: { in: ids } }, sort, page: Number(sp.page) || 1, filters: sp });
   return (
     <div>
-      <nav className="mb-3 text-sm text-gray-500" aria-label="Breadcrumb">
-        <Link href="/" className="hover:underline">Home</Link>
-        {category.parent && <> / <Link href={`/c/${category.parent.slug}`} className="hover:underline">{category.parent.name}</Link></>}
-        {" / "}<span className="text-gray-900">{category.name}</span>
-      </nav>
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold">{category.name}</h1>
-        {category.description && <p className="mt-1 max-w-2xl text-sm text-gray-600">{category.description}</p>}
+      <Breadcrumbs items={[{ label: "Home", href: "/" }, ...(category.parent ? [{ label: category.parent.name, href: `/c/${category.parent.slug}` }] : []), { label: category.name }]} />
+      <div className="relative mb-6 overflow-hidden rounded-3xl bg-hero px-6 py-10 sm:px-10">
+        <div className="bg-dots absolute inset-0 opacity-50" aria-hidden="true" />
+        <div className="relative">
+          <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">{category.name}</h1>
+          {category.description && <p className="mt-2 max-w-2xl text-gray-300">{category.description}</p>}
+          <p className="mt-3 text-sm font-medium text-brand-300">{result.total} product{result.total === 1 ? "" : "s"}</p>
+        </div>
       </div>
       {category.children.length > 0 && (
-        <div className="mb-6 flex flex-wrap gap-2">
+        <div className="no-scrollbar mb-6 flex gap-2 overflow-x-auto">
           {category.children.map((c) => (
-            <Link key={c.id} href={`/c/${c.slug}`} className="rounded-full border px-3 py-1 text-sm hover:border-brand-600 hover:text-brand-700">{c.name}</Link>
+            <Link key={c.id} href={`/c/${c.slug}`} className="whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold hover:border-ink-900">{c.name}</Link>
           ))}
         </div>
       )}

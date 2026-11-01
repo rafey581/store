@@ -6,6 +6,7 @@ import { quoteCart, methodLabel } from "@/server/orders";
 import { availableMethods } from "@/server/payments";
 import { getCurrentUser } from "@/server/auth/session";
 import { CheckoutForm } from "@/components/store/checkout-form";
+import { CheckoutSteps } from "@/components/store/checkout-steps";
 import { getSettings } from "@/server/settings";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
@@ -42,7 +43,8 @@ export default async function CheckoutPage() {
   if (q.blocked) redirect("/cart");
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold">Checkout</h1>
+      <CheckoutSteps current={2} />
+      <h1 className="mb-6 text-3xl font-extrabold tracking-tight">Checkout</h1>
       <CheckoutForm
         initial={initial}
         loggedIn={Boolean(user)}

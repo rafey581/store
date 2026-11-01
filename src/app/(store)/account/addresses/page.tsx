@@ -13,7 +13,7 @@ export default async function AddressesPage() {
   const addresses = await db.address.findMany({ where: { userId: user.id }, orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }] });
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Addresses</h1><Link href="/account" className="text-sm text-brand-700 hover:underline">Back to account</Link></div>
+      <div className="flex items-center justify-between"><h1 className="text-3xl font-extrabold tracking-tight">Addresses</h1><Link href="/account" className="text-sm text-brand-700 hover:underline">Back to account</Link></div>
       <ul className="grid gap-4 sm:grid-cols-2">
         {addresses.map((a) => (
           <li key={a.id} className={`${cardCls} p-4 text-sm`}>

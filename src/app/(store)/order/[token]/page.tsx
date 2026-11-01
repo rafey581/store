@@ -11,6 +11,8 @@ import { formatDate, orderLabel } from "@/lib/utils";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_COLOR } from "@/lib/order-status";
 import { ProofForm } from "@/components/store/proof-form";
 import { AutoRedirect } from "@/components/store/auto-redirect";
+import { OrderProgress } from "@/components/store/order-progress";
+import { ProductPlaceholder } from "@/components/store/product-placeholder";
 import { badgeCls, cardCls, btnPrimary } from "@/components/ui/styles";
 
 export const metadata: Metadata = { title: "Your order", robots: { index: false, follow: false } };
@@ -49,17 +51,20 @@ export default async function OrderPage({ params, searchParams }: Props) {
     <div className="mx-auto max-w-4xl space-y-6">
       {sp.pay && o.status === "PENDING_PAYMENT" && gatewayMethods.includes(sp.pay as never) && <AutoRedirect href={`/checkout/pay/${o.trackingToken}?method=${sp.pay}`} label={methodLabel(sp.pay as never)} />}
       {sp.cancelled && o.status === "CANCELLED" && <p className="rounded-xl bg-gray-100 p-4 text-gray-800">Your order has been cancelled. Any reserved items have been released.</p>}
-      {sp.placed && !sp.pay && <p className="rounded-xl bg-emerald-50 p-4 text-emerald-800">Thank you! Your order has been placed. Save this page link to track your order. We have also emailed it to you.</p>}
+      {sp.placed && !sp.pay && <p className="rounded-2xl border border-brand-100 bg-brand-50 p-5 font-medium text-brand-900">🎉 Thank you! Your order has been placed. Save this page link to track your order. We have also emailed it to you.</p>}
       {sp.payment === "returned" && o.status === "PENDING_PAYMENT" && <p className="rounded-xl bg-amber-50 p-4 text-amber-800">We have not received confirmation of your payment yet. If you completed the payment, this page will update within a few minutes. Otherwise you can try again below.</p>}
       {sp.error && <p className="rounded-xl bg-red-50 p-4 text-red-700">{sp.error.slice(0, 200)}</p>}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Order {orderLabel(o.number)}</h1>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-700">Order details</p>
+          <h1 className="mt-1 text-3xl font-extrabold tracking-tight">Order {orderLabel(o.number)}</h1>
           <p className="text-sm text-gray-500">Placed {formatDate(o.createdAt)}</p>
         </div>
         <span className={`${badgeCls} px-3 py-1 text-sm ${ORDER_STATUS_COLOR[o.status]}`}>{ORDER_STATUS_LABEL[o.status]}</span>
       </div>
+
+      <OrderProgress status={o.status} />
 
       {o.status === "PENDING_PAYMENT" && (
         <section className={`${cardCls} space-y-5 p-5`}>
@@ -117,7 +122,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
           <ul className="divide-y">
             {o.items.map((it) => (
               <li key={it.id} className="flex items-center gap-3 py-3 text-sm">
-                <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded bg-gray-100">{it.imageUrl && <Image src={it.imageUrl} alt="" fill sizes="56px" className="object-cover" />}</span>
+                <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-sand-100">{it.imageUrl ? <Image src={it.imageUrl} alt="" fill sizes="56px" className="object-cover" /> : <ProductPlaceholder name={it.productName} className="[&_span]:text-lg" />}</span>
                 <span className="flex-1">{it.productName}{it.variantTitle !== "Default" && <span className="text-gray-500"> ({it.variantTitle})</span>} × {it.quantity}</span>
                 <span>{formatPKR(it.lineTotalPaisa)}</span>
               </li>

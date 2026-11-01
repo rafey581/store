@@ -9,9 +9,9 @@ export function CouponForm({ applied, error }: { applied: string | null; error: 
   const [state, action] = useActionState(applyCoupon, null);
   if (applied) {
     return (
-      <form action={removeCoupon} className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm">
+      <form action={removeCoupon} className="flex items-center justify-between rounded-xl bg-brand-50 px-3.5 py-2.5 text-sm text-brand-800">
         <span>Coupon <b>{applied}</b> applied</span>
-        <button className="text-red-600 hover:underline">Remove</button>
+        <button className="font-semibold text-sale hover:underline">Remove</button>
       </form>
     );
   }

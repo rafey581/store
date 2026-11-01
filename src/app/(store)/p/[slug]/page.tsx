@@ -4,6 +4,9 @@ import { notFound } from "next/navigation";
 import { getProductBySlug, productCardSelect } from "@/server/catalog";
 import { db } from "@/server/db";
 import { ProductGrid } from "@/components/store/product-card";
+import { Breadcrumbs } from "@/components/store/breadcrumbs";
+import { SectionHeading } from "@/components/store/section-heading";
+import { formatPKR } from "@/lib/money";
 import { ProductPurchase } from "@/components/store/product-purchase";
 import { siteUrl } from "@/lib/utils";
 import { getSettings } from "@/server/settings";
@@ -69,21 +72,25 @@ export default async function ProductPage({ params }: Props) {
   return (
     <div>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([jsonLd, breadcrumb]).replace(/</g, "\\u003c") }} />
-      <nav className="mb-4 text-sm text-gray-500" aria-label="Breadcrumb">
-        <Link href="/" className="hover:underline">Home</Link>
-        {p.category && <> / <Link href={`/c/${p.category.slug}`} className="hover:underline">{p.category.name}</Link></>}
-        {" / "}<span className="text-gray-900">{p.name}</span>
-      </nav>
-      <ProductPurchase name={p.name} images={p.images.map((i) => ({ url: i.url, alt: i.alt }))} options={options} variants={variants} />
+      <Breadcrumbs items={[{ label: "Home", href: "/" }, ...(p.category ? [{ label: p.category.name, href: `/c/${p.category.slug}` }] : []), { label: p.name }]} />
+      <ProductPurchase
+        name={p.name}
+        category={p.category}
+        images={p.images.map((i) => ({ url: i.url, alt: i.alt }))}
+        options={options}
+        variants={variants}
+        codEnabled={settings.enableCod}
+        deliveryText={settings.freeShippingAbovePaisa ? `2–5 working days. Free over ${formatPKR(settings.freeShippingAbovePaisa)}` : "2–5 working days across Pakistan"}
+      />
       {p.description && (
-        <section className="mt-12 max-w-3xl">
-          <h2 className="mb-3 text-lg font-semibold">Description</h2>
-          <div className="prose-store whitespace-pre-line text-gray-700">{p.description}</div>
+        <section className="mt-16 grid gap-8 lg:grid-cols-[1fr_2fr]">
+          <h2 className="text-2xl font-extrabold tracking-tight">Product details</h2>
+          <div className="prose-store whitespace-pre-line rounded-2xl border border-gray-100 bg-white p-6 text-[15px] text-gray-700 shadow-[var(--shadow-soft)]">{p.description}</div>
         </section>
       )}
       {related.length > 0 && (
-        <section className="mt-14">
-          <h2 className="mb-4 text-lg font-semibold">You may also like</h2>
+        <section className="mt-16">
+          <SectionHeading eyebrow="More to explore" title="You may also like" href={p.category ? `/c/${p.category.slug}` : "/search"} />
           <ProductGrid items={related} />
         </section>
       )}

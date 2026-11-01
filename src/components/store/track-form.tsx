@@ -13,7 +13,7 @@ export function TrackForm() {
       <div><label className={labelCls} htmlFor="number">Order number</label><input id="number" name="number" placeholder="e.g. 10001" required className={inputCls} value={v.number} onChange={(e) => setV({ ...v, number: e.target.value })} /></div>
       <div><label className={labelCls} htmlFor="contact">Email or mobile number used for the order</label><input id="contact" name="contact" required className={inputCls} value={v.contact} onChange={(e) => setV({ ...v, contact: e.target.value })} /></div>
       <FormMessage state={state} />
-      <SubmitButton className="w-full rounded-lg bg-brand-600 py-2.5 font-semibold text-white hover:bg-brand-700">Track order</SubmitButton>
+      <SubmitButton className="w-full rounded-xl bg-brand-600 py-3 font-bold text-white shadow-[var(--shadow-glow)] transition hover:bg-brand-700">Track order</SubmitButton>
     </form>
   );
 }

@@ -31,9 +31,10 @@ export default async function SearchPage({ searchParams }: Props) {
   const result = await listProducts({ where, sort, page: Number(sp.page) || 1, filters: sp });
   return (
     <div>
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold">{q ? `Results for “${q}”` : "All products"}</h1>
-        <p className="text-sm text-gray-500">{result.total} product{result.total === 1 ? "" : "s"}</p>
+      <div className="mb-6">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-700">{q ? "Search" : "Catalog"}</p>
+        <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">{q ? `Results for “${q}”` : "All products"}</h1>
+        <p className="mt-1 text-sm text-gray-500">{result.total} product{result.total === 1 ? "" : "s"}</p>
       </div>
       <FilterBar action="/search" params={{ ...sp, q }} sort={sort} />
       <ProductGrid items={result.items} />

@@ -19,7 +19,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
     <div className="space-y-6">
       {sp.passwordChanged && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Password changed. Other devices have been signed out.</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">My account</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight">My account</h1>
         <div className="flex gap-4 text-sm">
           <Link href="/account/addresses" className="text-brand-700 hover:underline">Addresses</Link>
           <form action={logoutAction}><button className="text-gray-600 hover:underline">Sign out</button></form>

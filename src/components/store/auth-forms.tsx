@@ -15,7 +15,7 @@ export function LoginForm({ next }: { next?: string }) {
       <div><label className={labelCls} htmlFor="email">Email</label><input id="email" name="email" type="email" autoComplete="email" required className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} /></div>
       <div><label className={labelCls} htmlFor="password">Password</label><input id="password" name="password" type="password" autoComplete="current-password" required className={inputCls} /></div>
       <FormMessage state={state} />
-      <SubmitButton className="w-full rounded-lg bg-brand-600 py-2.5 font-semibold text-white hover:bg-brand-700" pendingText="Signing in…">Sign in</SubmitButton>
+      <SubmitButton className="w-full rounded-xl bg-brand-600 py-3 font-bold text-white shadow-[var(--shadow-glow)] transition hover:bg-brand-700" pendingText="Signing in…">Sign in</SubmitButton>
       <div className="flex justify-between text-sm">
         <Link href="/forgot-password" className="text-brand-700 hover:underline">Forgot password?</Link>
         <Link href={`/register${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="text-brand-700 hover:underline">Create account</Link>
@@ -36,7 +36,7 @@ export function RegisterForm({ next }: { next?: string }) {
       <div><label className={labelCls} htmlFor="phone">Mobile number (optional)</label><input id="phone" name="phone" type="tel" placeholder="03001234567" autoComplete="tel" className={inputCls} {...bind("phone")} /></div>
       <div><label className={labelCls} htmlFor="password">Password</label><input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required className={inputCls} /><FieldError state={state} name="password" /></div>
       <FormMessage state={state} />
-      <SubmitButton className="w-full rounded-lg bg-brand-600 py-2.5 font-semibold text-white hover:bg-brand-700" pendingText="Creating account…">Create account</SubmitButton>
+      <SubmitButton className="w-full rounded-xl bg-brand-600 py-3 font-bold text-white shadow-[var(--shadow-glow)] transition hover:bg-brand-700" pendingText="Creating account…">Create account</SubmitButton>
       <p className="text-center text-sm">Already have an account? <Link href="/login" className="text-brand-700 hover:underline">Sign in</Link></p>
     </form>
   );
@@ -48,7 +48,7 @@ export function ForgotForm() {
     <form action={action} className="space-y-4">
       <div><label className={labelCls} htmlFor="email">Email</label><input id="email" name="email" type="email" required className={inputCls} /></div>
       <FormMessage state={state} />
-      <SubmitButton className="w-full rounded-lg bg-brand-600 py-2.5 font-semibold text-white hover:bg-brand-700">Send reset link</SubmitButton>
+      <SubmitButton className="w-full rounded-xl bg-brand-600 py-3 font-bold text-white shadow-[var(--shadow-glow)] transition hover:bg-brand-700">Send reset link</SubmitButton>
     </form>
   );
 }
@@ -60,7 +60,7 @@ export function ResetForm({ token }: { token: string }) {
       <input type="hidden" name="token" value={token} />
       <div><label className={labelCls} htmlFor="password">New password</label><input id="password" name="password" type="password" minLength={8} required className={inputCls} /></div>
       <FormMessage state={state} />
-      {state?.ok ? <Link href="/login" className="block text-center font-medium text-brand-700 hover:underline">Go to sign in</Link> : <SubmitButton className="w-full rounded-lg bg-brand-600 py-2.5 font-semibold text-white hover:bg-brand-700">Update password</SubmitButton>}
+      {state?.ok ? <Link href="/login" className="block text-center font-medium text-brand-700 hover:underline">Go to sign in</Link> : <SubmitButton className="w-full rounded-xl bg-brand-600 py-3 font-bold text-white shadow-[var(--shadow-glow)] transition hover:bg-brand-700">Update password</SubmitButton>}
     </form>
   );
 }

@@ -34,16 +34,16 @@ export function CheckoutForm({ initial, cities, methods, initialQuote, loggedIn,
   return (
     <form action={action} className="grid gap-8 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
-        <section className={`${cardCls} grid gap-4 p-5 sm:grid-cols-2`}>
-          <h2 className="font-semibold sm:col-span-2">Contact</h2>
+        <section className={`${cardCls} grid gap-4 p-6 sm:grid-cols-2`}>
+          <h2 className="flex items-center gap-3 text-lg font-bold sm:col-span-2"><span className="grid h-7 w-7 place-items-center rounded-full bg-ink-900 text-xs text-white">1</span> Contact</h2>
           <div className="sm:col-span-2"><label className={labelCls} htmlFor="email">Email</label><input id="email" type="email" autoComplete="email" required className={inputCls} {...bind("email")} /><FieldError state={state} name="email" /></div>
           <div><label className={labelCls} htmlFor="customerName">Full name</label><input id="customerName" autoComplete="name" required className={inputCls} {...bind("customerName")} /><FieldError state={state} name="customerName" /></div>
           <div><label className={labelCls} htmlFor="phone">Mobile number</label><input id="phone" type="tel" autoComplete="tel" placeholder="03001234567" required className={inputCls} {...bind("phone")} /><FieldError state={state} name="phone" /></div>
           {!loggedIn && <p className="text-xs text-gray-500 sm:col-span-2">Checking out as a guest. You will get a link to track your order by email. <a href="/login?next=/checkout" className="text-brand-700 hover:underline">Sign in</a> to use saved addresses.</p>}
         </section>
 
-        <section className={`${cardCls} grid gap-4 p-5 sm:grid-cols-2`}>
-          <h2 className="font-semibold sm:col-span-2">Delivery address</h2>
+        <section className={`${cardCls} grid gap-4 p-6 sm:grid-cols-2`}>
+          <h2 className="flex items-center gap-3 text-lg font-bold sm:col-span-2"><span className="grid h-7 w-7 place-items-center rounded-full bg-ink-900 text-xs text-white">2</span> Delivery address</h2>
           <div className="sm:col-span-2"><label className={labelCls} htmlFor="shipLine1">Address</label><input id="shipLine1" autoComplete="address-line1" placeholder="House no., street, area" required className={inputCls} {...bind("shipLine1")} /><FieldError state={state} name="shipLine1" /></div>
           <div className="sm:col-span-2"><label className={labelCls} htmlFor="shipLine2">Apartment, landmark (optional)</label><input id="shipLine2" autoComplete="address-line2" className={inputCls} {...bind("shipLine2")} /></div>
           <div>
@@ -64,21 +64,21 @@ export function CheckoutForm({ initial, cities, methods, initialQuote, loggedIn,
           {loggedIn && <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" name="saveAddress" /> Save this address to my account</label>}
         </section>
 
-        <section className={`${cardCls} space-y-3 p-5`}>
-          <h2 className="font-semibold">Payment</h2>
+        <section className={`${cardCls} space-y-3 p-6`}>
+          <h2 className="flex items-center gap-3 text-lg font-bold"><span className="grid h-7 w-7 place-items-center rounded-full bg-ink-900 text-xs text-white">3</span> Payment method</h2>
           {visibleMethods.length === 0 && <p className="text-sm text-red-600">No payment methods are available right now. Please contact the store.</p>}
           {methods.some((m) => m.value === "COD") && !quote.codAllowed && <p className="text-xs text-gray-500">Cash on delivery is not available for this order amount.</p>}
           {visibleMethods.map((m) => (
-            <label key={m.value} className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${selectedMethod === m.value ? "border-brand-600 bg-brand-50" : "border-gray-200"}`}>
-              <input type="radio" name="paymentMethod" value={m.value} checked={selectedMethod === m.value} onChange={() => setF((s) => ({ ...s, paymentMethod: m.value }))} className="mt-1" />
-              <span><span className="block text-sm font-medium">{m.label}</span><span className="block text-xs text-gray-600">{m.description}</span></span>
+            <label key={m.value} className={`flex cursor-pointer gap-3 rounded-xl border-2 p-4 transition ${selectedMethod === m.value ? "border-brand-600 bg-brand-50/60 shadow-sm" : "border-gray-100 hover:border-gray-300"}`}>
+              <input type="radio" name="paymentMethod" value={m.value} checked={selectedMethod === m.value} onChange={() => setF((s) => ({ ...s, paymentMethod: m.value }))} className="mt-1 h-4 w-4 accent-brand-600" />
+              <span><span className="block text-sm font-bold">{m.label}</span><span className="block text-xs text-gray-600">{m.description}</span></span>
             </label>
           ))}
         </section>
       </div>
 
-      <aside className={`${cardCls} h-fit space-y-4 p-5 lg:sticky lg:top-28`}>
-        <h2 className="font-semibold">Order summary</h2>
+      <aside className={`${cardCls} h-fit space-y-4 p-6 lg:sticky lg:top-32`}>
+        <h2 className="text-lg font-bold">Order summary</h2>
         <ul className="space-y-1 text-sm">
           {lines.map((l, i) => <li key={i} className="flex justify-between gap-2"><span className="truncate">{l.name} × {l.qty}</span><span>{formatPKR(l.total)}</span></li>)}
         </ul>
@@ -89,11 +89,11 @@ export function CheckoutForm({ initial, cities, methods, initialQuote, loggedIn,
           {quote.codFeePaisa > 0 && <div className="flex justify-between"><dt>Cash on delivery fee</dt><dd>{formatPKR(quote.codFeePaisa)}</dd></div>}
           <div className="flex justify-between"><dt>Shipping</dt><dd>{!f.shipCity ? "Enter city" : quote.freeShipping ? "Free" : formatPKR(quote.shippingPaisa)}</dd></div>
           {quote.deliveryDays && f.shipCity && <p className="text-xs text-gray-500">Delivery in {quote.deliveryDays}</p>}
-          <div className="flex justify-between border-t pt-2 text-base font-bold"><dt>Total</dt><dd>{formatPKR(quote.totalPaisa)}</dd></div>
+          <div className="flex justify-between border-t pt-3 text-lg font-extrabold"><dt>Total</dt><dd>{formatPKR(quote.totalPaisa)}</dd></div>
         </dl>
         <FormMessage state={state} />
         {quote.blocked ? <p className="text-sm text-red-600">{quote.blocked}</p> : (
-          <SubmitButton disabled={visibleMethods.length === 0} className="w-full rounded-lg bg-brand-600 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-50" pendingText="Placing order…">Place order</SubmitButton>
+          <SubmitButton disabled={visibleMethods.length === 0} className="w-full rounded-xl bg-brand-600 py-4 text-base font-bold text-white shadow-[var(--shadow-glow)] transition hover:-translate-y-px hover:bg-brand-700 disabled:opacity-50" pendingText="Placing order…">Place order</SubmitButton>
         )}
         <p className="text-xs text-gray-500">The final amount is calculated by our server when you place the order.</p>
       </aside>

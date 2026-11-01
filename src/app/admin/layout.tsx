@@ -26,26 +26,38 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     ...(can(user.role, "staff") ? [{ href: "/admin/staff", label: "Staff" }, { href: "/admin/audit", label: "Activity log" }] : []),
     { href: "/admin/help-developer", label: "Help for Developer" },
   ];
+  const initials = (user.name || user.email).split(/[\s@]+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
   return (
-    <div className="min-h-screen bg-gray-50 md:flex">
-      <aside className="border-b border-gray-200 bg-white md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:overflow-y-auto md:border-b-0 md:border-r">
+    <div className="min-h-screen bg-[#f6f7f9] md:flex">
+      <aside className="bg-ink-900 md:sticky md:top-0 md:flex md:h-screen md:w-64 md:shrink-0 md:flex-col">
         <details className="md:hidden">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3">
-            <span className="font-bold text-brand-700">{settings.storeName} Admin</span>
-            <span className="text-sm text-gray-600">Menu ☰</span>
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-white">
+            <span className="font-extrabold">{settings.storeName} <span className="font-medium text-gray-400">Admin</span></span>
+            <span className="rounded-lg bg-white/10 px-3 py-1 text-sm">Menu</span>
           </summary>
-          <div className="px-3 pb-3"><AdminNav items={items} /></div>
+          <div className="px-3 pb-4"><AdminNav items={items} /></div>
         </details>
-        <div className="hidden p-4 md:block">
-          <Link href="/admin" className="mb-4 block font-bold text-brand-700">{settings.storeName} Admin</Link>
-          <AdminNav items={items} />
-          <div className="mt-6 border-t pt-4 text-xs text-gray-500">
-            <p className="truncate font-medium text-gray-800">{user.name || user.email}</p>
-            <p>{user.role === "OWNER" ? "Owner" : "Staff"}</p>
-            <div className="mt-2 flex gap-3">
-              <Link href="/" className="hover:underline">View store</Link>
-              <form action={logoutAction}><button className="hover:underline">Sign out</button></form>
+        <div className="hidden px-5 pb-4 pt-6 md:block">
+          <Link href="/admin" className="flex items-center gap-2">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-extrabold text-white">{settings.storeName.slice(0, 1)}</span>
+            <span className="leading-tight">
+              <span className="block font-extrabold text-white">{settings.storeName}</span>
+              <span className="block text-xs text-gray-500">Admin panel</span>
+            </span>
+          </Link>
+        </div>
+        <div className="hidden flex-1 overflow-y-auto px-3 md:block"><AdminNav items={items} /></div>
+        <div className="hidden border-t border-white/10 p-4 md:block">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-white/10 text-xs font-bold text-white">{initials}</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-white">{user.name || user.email}</p>
+              <p className="text-xs text-gray-500">{user.role === "OWNER" ? "Owner" : "Staff"}</p>
             </div>
+          </div>
+          <div className="mt-3 flex gap-2 text-xs">
+            <Link href="/" className="flex-1 rounded-lg bg-white/5 py-1.5 text-center text-gray-300 hover:bg-white/10">View store</Link>
+            <form action={logoutAction} className="flex-1"><button className="w-full rounded-lg bg-white/5 py-1.5 text-gray-300 hover:bg-white/10">Sign out</button></form>
           </div>
         </div>
       </aside>

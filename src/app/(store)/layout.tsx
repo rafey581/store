@@ -18,9 +18,9 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(org).replace(/</g, "\\u003c") }} />
-      {s.announcement && <div className="bg-brand-700 px-4 py-2 text-center text-xs font-medium text-white sm:text-sm">{s.announcement}</div>}
+      {s.announcement && <div className="bg-ink-900 px-4 py-2 text-center text-xs font-medium tracking-wide text-gray-200 sm:text-sm"><span className="text-brand-400">●</span> {s.announcement}</div>}
       <StoreHeader />
-      <main className="mx-auto min-h-[60vh] max-w-7xl px-4 py-6">{children}</main>
+      <main className="mx-auto min-h-[60vh] max-w-7xl px-4 py-6 sm:py-8">{children}</main>
       <StoreFooter />
       <VisitTracker />
       {s.whatsappNumber && <WhatsAppButton number={s.whatsappNumber} storeName={s.storeName} />}

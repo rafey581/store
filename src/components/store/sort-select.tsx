@@ -15,7 +15,7 @@ export function SortSelect({ value }: { value: string }) {
         p.delete("page");
         router.push(`${pathname}?${p.toString()}`);
       }}
-      className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm"
+      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium focus:border-brand-600 focus:outline-none"
     >
       <option value="newest">Newest</option>
       <option value="price-asc">Price: low to high</option>
