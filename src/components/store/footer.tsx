@@ -23,7 +23,15 @@ export async function StoreFooter() {
           <p>Delivery across Pakistan. Prices in PKR.</p>
         </div>
       </div>
-      <p className="pb-6 text-center text-xs text-gray-400">© {new Date().getFullYear()} {s.storeName}</p>
+      <div className="pb-6 text-center text-xs text-gray-400">
+        <p>© {new Date().getFullYear()} {s.storeName}</p>
+        <p className="mt-1">
+          Developed by{" "}
+          <a href="https://rafey.me" target="_blank" rel="noopener" className="font-medium text-gray-600 hover:text-brand-700 hover:underline">
+            Xast Solutions
+          </a>
+        </p>
+      </div>
     </footer>
   );
 }
