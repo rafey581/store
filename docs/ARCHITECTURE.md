@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: Phases 1–3 (website, admin, payments) are built. `mobile/` (Phase 4, Android admin app) is not built yet.
+> Status: all four phases are built (website, admin, payments, Android admin app in `mobile/`).
 > Small differences from the original proposal: local uploads are served by `/media/[...key]`; the proof review page is `/admin/proofs`.
 
 ## Stack

@@ -3,14 +3,14 @@
 E-commerce website for selling physical products in Pakistan. Prices in PKR (stored as integer paisa), mobile-first storefront, admin panel, five payment methods.
 
 - **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · PostgreSQL (Supabase) · Prisma 7 · Zod · Auth.js
-- **Docs:** [Architecture](docs/ARCHITECTURE.md) · [Payments and go-live checklist](docs/PAYMENTS.md)
+- **Docs:** [Architecture](docs/ARCHITECTURE.md) · [Payments and go-live checklist](docs/PAYMENTS.md) · [Android admin app](docs/MOBILE.md)
 
 | Status | |
 |---|---|
 | Phase 1: schema, auth, catalog, admin products | Done |
 | Phase 2: cart, checkout, manual transfers, orders admin, emails | Done |
 | Phase 3: Safepay, PayFast, JazzCash, Easypaisa | Built; **not yet tested against the real sandboxes** (see docs/PAYMENTS.md) |
-| Phase 4: Android admin app (Expo) | Not started. The mobile JWT auth module and push sender already exist. |
+| Phase 4: Android admin app (Expo, `mobile/`) | Built; API and screens tested. APK build and push need your Expo/Firebase accounts (see docs/MOBILE.md) |
 
 ---
 
@@ -157,6 +157,8 @@ src/app/admin/     admin panel (role checked on the server in every page and act
 src/app/api/       auth, uploads, payment callbacks/returns, cron, visitor beacon
 src/server/        server-only logic: orders, payments, cart, auth, email, storage, push
 src/lib/           money (paisa), pricing, validation, permissions, order statuses
+src/app/api/mobile/ JSON API for the Android admin app (Bearer tokens)
+mobile/            Android admin app (Expo)
 scripts/           mock payment gateways for local testing
 tests/             unit tests (Vitest)
 ```
