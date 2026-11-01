@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { getSettings } from "@/server/settings";
+import { getFooterPages } from "@/server/pages";
 
 export async function StoreFooter() {
-  const s = await getSettings();
+  const [s, pages] = await Promise.all([getSettings(), getFooterPages()]);
   return (
     <footer className="mt-16 border-t border-gray-200 bg-gray-50">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 text-sm text-gray-600 sm:grid-cols-3">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 text-sm text-gray-600 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <p className="font-semibold text-gray-900">{s.storeName}</p>
           {s.address && <p className="mt-2 whitespace-pre-line">{s.address}</p>}
@@ -22,6 +23,12 @@ export async function StoreFooter() {
           <p><Link className="hover:underline" href="/account">My account</Link></p>
           <p>Delivery across Pakistan. Prices in PKR.</p>
         </div>
+        {pages.length > 0 && (
+          <div className="space-y-1">
+            <p className="font-semibold text-gray-900">Information</p>
+            {pages.map((p) => <p key={p.slug}><Link className="hover:underline" href={`/pages/${p.slug}`}>{p.title}</Link></p>)}
+          </div>
+        )}
       </div>
       <div className="pb-6 text-center text-xs text-gray-400">
         <p>© {new Date().getFullYear()} {s.storeName}</p>

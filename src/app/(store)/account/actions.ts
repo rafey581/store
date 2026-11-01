@@ -1,8 +1,10 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/server/db";
 import { requireCustomer } from "@/server/auth/session";
+import { signIn } from "@/auth";
 import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { normalizePkPhone } from "@/lib/utils";
 import type { ActionState } from "@/components/ui/form-message";
@@ -23,9 +25,12 @@ export async function changePassword(_prev: ActionState, formData: FormData): Pr
   if (next.length < 8) return { error: "New password must be at least 8 characters." };
   const row = await db.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
   if (!row?.passwordHash || !(await verifyPassword(current, row.passwordHash))) return { error: "Current password is incorrect." };
-  await db.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(next) } });
+  await db.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(next), passwordChangedAt: new Date() } });
   await db.refreshToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: new Date() } });
-  return { ok: "Password changed." };
+  // Other devices are signed out; keep this browser signed in with a fresh session.
+  await signIn("credentials", { email: user.email, password: next, redirect: false });
+  // Redirect so the next request uses the new session cookie.
+  redirect("/account?passwordChanged=1");
 }
 
 const addressSchema = z.object({

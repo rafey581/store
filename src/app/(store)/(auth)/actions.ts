@@ -89,7 +89,7 @@ export async function resetPasswordAction(_prev: ActionState, formData: FormData
   const row = await db.passwordResetToken.findUnique({ where: { tokenHash: sha256(token) } });
   if (!row || row.usedAt || row.expiresAt < new Date()) return { error: "This reset link is invalid or has expired." };
   await db.$transaction([
-    db.user.update({ where: { id: row.userId }, data: { passwordHash: await hashPassword(password) } }),
+    db.user.update({ where: { id: row.userId }, data: { passwordHash: await hashPassword(password), passwordChangedAt: new Date() } }),
     db.passwordResetToken.update({ where: { id: row.id }, data: { usedAt: new Date() } }),
     db.refreshToken.updateMany({ where: { userId: row.userId, revokedAt: null }, data: { revokedAt: new Date() } }),
   ]);

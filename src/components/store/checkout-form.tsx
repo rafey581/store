@@ -18,11 +18,16 @@ export function CheckoutForm({ initial, cities, methods, initialQuote, loggedIn,
   const [quoting, startQuote] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Cash on delivery may be unavailable above the store's limit; fall back to the first available method.
+  const visibleMethods = methods.filter((m) => m.value !== "COD" || quote.codAllowed);
+  const selectedMethod = visibleMethods.some((m) => m.value === f.paymentMethod) ? f.paymentMethod : (visibleMethods[0]?.value ?? "");
+
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => startQuote(async () => setQuote(await quoteAction(f.shipCity, f.email))), 400);
+    timer.current = setTimeout(() => startQuote(async () => setQuote(await quoteAction(f.shipCity, f.email, selectedMethod))), 400);
     return () => { if (timer.current) clearTimeout(timer.current); };
-  }, [f.shipCity, f.email]);
+  }, [f.shipCity, f.email, selectedMethod]);
+
 
   const bind = (k: keyof typeof f) => ({ name: k, value: f[k], onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setF((s) => ({ ...s, [k]: e.target.value })) });
 
@@ -61,10 +66,11 @@ export function CheckoutForm({ initial, cities, methods, initialQuote, loggedIn,
 
         <section className={`${cardCls} space-y-3 p-5`}>
           <h2 className="font-semibold">Payment</h2>
-          {methods.length === 0 && <p className="text-sm text-red-600">No payment methods are available right now. Please contact the store.</p>}
-          {methods.map((m) => (
-            <label key={m.value} className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${f.paymentMethod === m.value ? "border-brand-600 bg-brand-50" : "border-gray-200"}`}>
-              <input type="radio" name="paymentMethod" value={m.value} checked={f.paymentMethod === m.value} onChange={() => setF((s) => ({ ...s, paymentMethod: m.value }))} className="mt-1" />
+          {visibleMethods.length === 0 && <p className="text-sm text-red-600">No payment methods are available right now. Please contact the store.</p>}
+          {methods.some((m) => m.value === "COD") && !quote.codAllowed && <p className="text-xs text-gray-500">Cash on delivery is not available for this order amount.</p>}
+          {visibleMethods.map((m) => (
+            <label key={m.value} className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${selectedMethod === m.value ? "border-brand-600 bg-brand-50" : "border-gray-200"}`}>
+              <input type="radio" name="paymentMethod" value={m.value} checked={selectedMethod === m.value} onChange={() => setF((s) => ({ ...s, paymentMethod: m.value }))} className="mt-1" />
               <span><span className="block text-sm font-medium">{m.label}</span><span className="block text-xs text-gray-600">{m.description}</span></span>
             </label>
           ))}
@@ -80,13 +86,14 @@ export function CheckoutForm({ initial, cities, methods, initialQuote, loggedIn,
           <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatPKR(quote.subtotalPaisa)}</dd></div>
           {quote.discountPaisa > 0 && <div className="flex justify-between text-emerald-700"><dt>Discount ({quote.couponApplied})</dt><dd>-{formatPKR(quote.discountPaisa)}</dd></div>}
           {quote.couponError && <p className="text-xs text-amber-700">Coupon not applied: {quote.couponError}</p>}
+          {quote.codFeePaisa > 0 && <div className="flex justify-between"><dt>Cash on delivery fee</dt><dd>{formatPKR(quote.codFeePaisa)}</dd></div>}
           <div className="flex justify-between"><dt>Shipping</dt><dd>{!f.shipCity ? "Enter city" : quote.freeShipping ? "Free" : formatPKR(quote.shippingPaisa)}</dd></div>
           {quote.deliveryDays && f.shipCity && <p className="text-xs text-gray-500">Delivery in {quote.deliveryDays}</p>}
           <div className="flex justify-between border-t pt-2 text-base font-bold"><dt>Total</dt><dd>{formatPKR(quote.totalPaisa)}</dd></div>
         </dl>
         <FormMessage state={state} />
         {quote.blocked ? <p className="text-sm text-red-600">{quote.blocked}</p> : (
-          <SubmitButton disabled={methods.length === 0} className="w-full rounded-lg bg-brand-600 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-50" pendingText="Placing order…">Place order</SubmitButton>
+          <SubmitButton disabled={visibleMethods.length === 0} className="w-full rounded-lg bg-brand-600 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-50" pendingText="Placing order…">Place order</SubmitButton>
         )}
         <p className="text-xs text-gray-500">The final amount is calculated by our server when you place the order.</p>
       </aside>

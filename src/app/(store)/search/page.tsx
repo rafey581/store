@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { listProducts, parseSort } from "@/server/catalog";
 import { ProductGrid } from "@/components/store/product-card";
-import { SortSelect } from "@/components/store/sort-select";
+import { FilterBar } from "@/components/store/filter-bar";
 import { Pagination } from "@/components/ui/pagination";
 
-type Props = { searchParams: Promise<{ q?: string; sort?: string; page?: string }> };
+type Props = { searchParams: Promise<{ q?: string; sort?: string; page?: string; min?: string; max?: string; inStock?: string }> };
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { q } = await searchParams;
@@ -28,18 +28,16 @@ export default async function SearchPage({ searchParams }: Props) {
         })),
       }
     : {};
-  const result = await listProducts({ where, sort, page: Number(sp.page) || 1 });
+  const result = await listProducts({ where, sort, page: Number(sp.page) || 1, filters: sp });
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{q ? `Results for “${q}”` : "All products"}</h1>
-          <p className="text-sm text-gray-500">{result.total} product{result.total === 1 ? "" : "s"}</p>
-        </div>
-        <SortSelect value={sort} />
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">{q ? `Results for “${q}”` : "All products"}</h1>
+        <p className="text-sm text-gray-500">{result.total} product{result.total === 1 ? "" : "s"}</p>
       </div>
+      <FilterBar action="/search" params={{ ...sp, q }} sort={sort} />
       <ProductGrid items={result.items} />
-      <Pagination page={result.page} pages={result.pages} basePath="/search" params={{ q, sort: sp.sort }} />
+      <Pagination page={result.page} pages={result.pages} basePath="/search" params={{ q, sort: sp.sort, min: sp.min, max: sp.max, inStock: sp.inStock }} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { submitProof, PaymentError } from "@/server/payments";
 import { rupeesToPaisa } from "@/lib/money";
@@ -32,4 +33,15 @@ export async function submitProofAction(_prev: ActionState, formData: FormData):
   }
   revalidatePath(`/order/${token}`);
   return { ok: "Thank you! We received your payment proof and will verify it shortly." };
+}
+
+export async function cancelOrderAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const token = String(formData.get("token") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 200) || null;
+  if (!(await rateLimit(`cancel:${await clientIp()}`, 10, 3600))) return { error: "Too many requests. Please try again later." };
+  const { cancelOrderByCustomer } = await import("@/server/orders");
+  const r = await cancelOrderByCustomer(token, reason);
+  if (r !== "cancelled") return { error: r === "not_found" ? "Order not found." : "This order can no longer be cancelled online. Please contact us." };
+  revalidatePath(`/order/${token}`);
+  redirect(`/order/${token}?cancelled=1`);
 }

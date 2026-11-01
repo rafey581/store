@@ -29,21 +29,24 @@ const TOGGLE: Record<PaymentMethod, keyof Settings> = {
   JAZZCASH: "enableJazzcash",
   EASYPAISA: "enableEasypaisa",
   MANUAL_TRANSFER: "enableManualTransfer",
+  COD: "enableCod",
 };
 
+const OFFLINE_METHODS: PaymentMethod[] = ["MANUAL_TRANSFER", "COD"];
+
 export function getProvider(method: PaymentMethod): GatewayProvider | null {
-  if (method === "MANUAL_TRANSFER") return null;
+  if (method === "MANUAL_TRANSFER" || method === "COD") return null;
   return providers[method] ?? null;
 }
 
 export function isGatewayConfigured(method: PaymentMethod): boolean {
-  if (method === "MANUAL_TRANSFER") return true;
+  if (OFFLINE_METHODS.includes(method)) return true;
   return getProvider(method)?.isConfigured() ?? false;
 }
 
 export async function availableMethods(): Promise<PaymentMethod[]> {
   const s = await getSettings();
-  const order: PaymentMethod[] = ["SAFEPAY", "PAYFAST", "JAZZCASH", "EASYPAISA", "MANUAL_TRANSFER"];
+  const order: PaymentMethod[] = ["SAFEPAY", "PAYFAST", "JAZZCASH", "EASYPAISA", "MANUAL_TRANSFER", "COD"];
   return order.filter((m) => Boolean(s[TOGGLE[m]]) && isGatewayConfigured(m));
 }
 
@@ -74,8 +77,11 @@ export async function markOrderPaid(tx: Tx, args: { orderId: string; paymentId: 
     const ok = await reReserveStock(tx, args.orderId);
     note += ok ? " (paid after expiry; items re-reserved)" : " (paid after expiry; some items are out of stock — contact customer or refund)";
   }
-  await tx.order.update({ where: { id: args.orderId }, data: { status: "PAID", paymentStatus: "PAID", paidAt: now, expiresAt: null, cancelledAt: null } });
-  await addEvent(tx, args.orderId, order.status as never, "PAID", args.actorType, args.actorId, note);
+  // Orders already being fulfilled (e.g. cash on delivery) keep their fulfilment status.
+  const keepStatus = ["PROCESSING", "SHIPPED", "DELIVERED"].includes(order.status);
+  const newStatus = keepStatus ? (order.status as "PROCESSING" | "SHIPPED" | "DELIVERED") : "PAID";
+  await tx.order.update({ where: { id: args.orderId }, data: { status: newStatus, paymentStatus: "PAID", paidAt: now, expiresAt: null, cancelledAt: null } });
+  await addEvent(tx, args.orderId, order.status as never, newStatus, args.actorType, args.actorId, note);
   const day = karachiDay(now);
   await tx.dailyStat.upsert({ where: { date: day }, update: { revenuePaisa: { increment: order.totalPaisa } }, create: { date: day, revenuePaisa: order.totalPaisa } });
   return "paid";
@@ -193,6 +199,20 @@ export async function approveGatewayPaymentManually(paymentId: string, adminId: 
   const r = await db.$transaction((tx) => markOrderPaid(tx, { orderId: payment.orderId, paymentId, actorType: "ADMIN", actorId: adminId, note: `Gateway payment verified manually by admin: ${note}` }));
   if (r === "paid") await notifyOrder(payment.orderId, "paid");
   return r === "not_found" ? "not_found" : r === "paid" ? "approved" : "already";
+}
+
+/** Cash on delivery: staff confirm the courier collected (or remitted) the cash. */
+export async function markCodCollected(orderId: string, adminId: string, note?: string): Promise<"collected" | "not_cod" | "already" | "not_found" | "invalid_status"> {
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { payments: { where: { method: "COD" }, take: 1 } } });
+  if (!order) return "not_found";
+  if (order.paymentMethod !== "COD") return "not_cod";
+  if (order.paymentStatus === "PAID") return "already";
+  if (!["PROCESSING", "SHIPPED", "DELIVERED"].includes(order.status)) return "invalid_status";
+  const r = await db.$transaction(async (tx) => {
+    const paymentId = order.payments[0]?.id ?? (await tx.payment.create({ data: { orderId, method: "COD", status: "PENDING", amountPaisa: order.totalPaisa, reference: `C${order.number}-${Date.now().toString(36)}` } })).id;
+    return markOrderPaid(tx, { orderId, paymentId, actorType: "ADMIN", actorId: adminId, note: `Cash on delivery collected${note ? `: ${note}` : ""}` });
+  });
+  return r === "paid" ? "collected" : r === "already_paid" ? "already" : "not_found";
 }
 
 // ---------------------------------------------------------------------------

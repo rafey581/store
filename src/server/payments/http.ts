@@ -1,6 +1,6 @@
 import type { PaymentMethod } from "@/generated/prisma/enums";
 
-export const PROVIDER_SLUGS: Record<string, Exclude<PaymentMethod, "MANUAL_TRANSFER">> = {
+export const PROVIDER_SLUGS: Record<string, Exclude<PaymentMethod, "MANUAL_TRANSFER" | "COD">> = {
   safepay: "SAFEPAY",
   payfast: "PAYFAST",
   jazzcash: "JAZZCASH",

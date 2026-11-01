@@ -17,8 +17,8 @@ export default async function HomePage() {
   return (
     <div className="space-y-12">
       <section className="rounded-2xl bg-gradient-to-br from-brand-700 to-brand-500 px-6 py-12 text-white sm:px-12 sm:py-16">
-        <h1 className="max-w-xl text-3xl font-bold leading-tight sm:text-4xl">Welcome to {settings.storeName}</h1>
-        <p className="mt-3 max-w-lg text-brand-50">Quality products delivered to your door anywhere in Pakistan. Pay by card, JazzCash, Easypaisa or bank transfer.</p>
+        <h1 className="max-w-xl text-3xl font-bold leading-tight sm:text-4xl">{settings.heroTitle || `Welcome to ${settings.storeName}`}</h1>
+        <p className="mt-3 max-w-lg text-brand-50">{settings.heroSubtitle || "Quality products delivered to your door anywhere in Pakistan."}</p>
         <Link href="/search" className="mt-6 inline-flex rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-brand-700 shadow-sm hover:bg-brand-50">Shop now</Link>
       </section>
 

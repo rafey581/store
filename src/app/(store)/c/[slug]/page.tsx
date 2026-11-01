@@ -4,10 +4,10 @@ import { notFound } from "next/navigation";
 import { db } from "@/server/db";
 import { listProducts, parseSort } from "@/server/catalog";
 import { ProductGrid } from "@/components/store/product-card";
-import { SortSelect } from "@/components/store/sort-select";
+import { FilterBar } from "@/components/store/filter-bar";
 import { Pagination } from "@/components/ui/pagination";
 
-type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ sort?: string; page?: string }> };
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ sort?: string; page?: string; min?: string; max?: string; inStock?: string }> };
 
 async function getCategory(slug: string) {
   return db.category.findFirst({
@@ -29,7 +29,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   if (!category) notFound();
   const sort = parseSort(sp.sort);
   const ids = [category.id, ...category.children.map((c) => c.id)];
-  const result = await listProducts({ where: { categoryId: { in: ids } }, sort, page: Number(sp.page) || 1 });
+  const result = await listProducts({ where: { categoryId: { in: ids } }, sort, page: Number(sp.page) || 1, filters: sp });
   return (
     <div>
       <nav className="mb-3 text-sm text-gray-500" aria-label="Breadcrumb">
@@ -37,12 +37,9 @@ export default async function CategoryPage({ params, searchParams }: Props) {
         {category.parent && <> / <Link href={`/c/${category.parent.slug}`} className="hover:underline">{category.parent.name}</Link></>}
         {" / "}<span className="text-gray-900">{category.name}</span>
       </nav>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{category.name}</h1>
-          {category.description && <p className="mt-1 max-w-2xl text-sm text-gray-600">{category.description}</p>}
-        </div>
-        <SortSelect value={sort} />
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">{category.name}</h1>
+        {category.description && <p className="mt-1 max-w-2xl text-sm text-gray-600">{category.description}</p>}
       </div>
       {category.children.length > 0 && (
         <div className="mb-6 flex flex-wrap gap-2">
@@ -51,8 +48,9 @@ export default async function CategoryPage({ params, searchParams }: Props) {
           ))}
         </div>
       )}
+      <FilterBar action={`/c/${slug}`} params={sp} sort={sort} />
       <ProductGrid items={result.items} />
-      <Pagination page={result.page} pages={result.pages} basePath={`/c/${slug}`} params={{ sort: sp.sort }} />
+      <Pagination page={result.page} pages={result.pages} basePath={`/c/${slug}`} params={{ sort: sp.sort, min: sp.min, max: sp.max, inStock: sp.inStock }} />
     </div>
   );
 }

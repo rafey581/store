@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "@/server/db";
 import { can } from "@/lib/permissions";
-import { ADMIN_TRANSITIONS, STOCK_HELD, ownerOnlyTransition } from "@/lib/order-status";
+import { ADMIN_TRANSITIONS, STOCK_HELD, allowedTransitions, ownerOnlyTransition } from "@/lib/order-status";
 import { addEvent, releaseCoupon, releaseStock } from "@/server/orders";
 import { notifyOrder } from "@/server/notify";
 import { audit } from "@/server/audit";
@@ -29,7 +29,8 @@ export async function changeOrderStatusAs(user: { id: string; role: string }, ra
   if (!order) return { error: "Order not found." };
   const from = order.status;
   if (!ADMIN_TRANSITIONS[from]?.includes(d.to)) return { error: `Cannot change from ${from} to ${d.to}.` };
-  if (ownerOnlyTransition(from, d.to) && !can(user.role, "refunds")) return { error: "Only the Owner can cancel paid orders or mark refunds." };
+  if (ownerOnlyTransition(from, d.to, order.paymentStatus) && !can(user.role, "refunds")) return { error: "Only the Owner can cancel paid orders or mark refunds." };
+  if (!allowedTransitions(order, can(user.role, "refunds")).includes(d.to)) return { error: `Cannot change from ${from} to ${d.to}.` };
   const courierName = d.courierName || order.courierName;
   const trackingNumber = d.trackingNumber || order.trackingNumber;
   if (d.to === "SHIPPED" && (!courierName || !trackingNumber)) return { error: "Enter the courier and tracking number to mark as shipped." };

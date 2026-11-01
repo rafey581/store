@@ -22,7 +22,7 @@ export async function createStaff(_prev: ActionState, formData: FormData): Promi
   if (existing && existing.role !== "CUSTOMER") return { error: "This person is already a staff member." };
   const passwordHash = await hashPassword(d.password);
   const u = existing
-    ? await db.user.update({ where: { id: existing.id }, data: { role: d.role, name: d.name, passwordHash, disabledAt: null } })
+    ? await db.user.update({ where: { id: existing.id }, data: { role: d.role, name: d.name, passwordHash, disabledAt: null, passwordChangedAt: new Date() } })
     : await db.user.create({ data: { email: d.email, name: d.name, role: d.role, passwordHash } });
   await audit(me.id, "staff.create", "User", u.id, { email: u.email, role: u.role });
   revalidatePath("/admin/staff");

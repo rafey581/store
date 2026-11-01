@@ -5,16 +5,19 @@ import { findCart, getOrCreateCartId } from "@/server/cart";
 import { checkoutSchema, placeOrder, quoteCart, CheckoutError } from "@/server/orders";
 import { availableMethods } from "@/server/payments";
 import { notifyOrder } from "@/server/notify";
+import { getSettings } from "@/server/settings";
 import { getCurrentUser } from "@/server/auth/session";
 import { rateLimit, clientIp } from "@/server/rate-limit";
 import type { ActionState } from "@/components/ui/form-message";
 
-export type QuoteView = { subtotalPaisa: number; discountPaisa: number; shippingPaisa: number; totalPaisa: number; freeShipping: boolean; couponApplied: string | null; couponError: string | null; deliveryDays: string | null; blocked: string | null };
+export type QuoteView = { subtotalPaisa: number; discountPaisa: number; shippingPaisa: number; codFeePaisa: number; codAllowed: boolean; totalPaisa: number; freeShipping: boolean; couponApplied: string | null; couponError: string | null; deliveryDays: string | null; blocked: string | null };
 
-export async function quoteAction(city: string, email: string): Promise<QuoteView> {
+export async function quoteAction(city: string, email: string, paymentMethod?: string): Promise<QuoteView> {
   const cart = await findCart();
-  const q = await quoteCart(cart, { city: city.slice(0, 60), email: email.slice(0, 200) || null });
-  return { subtotalPaisa: q.subtotalPaisa, discountPaisa: q.discountPaisa, shippingPaisa: q.shippingPaisa, totalPaisa: q.totalPaisa, freeShipping: q.freeShipping, couponApplied: q.couponApplied, couponError: q.couponError, deliveryDays: q.deliveryDays, blocked: q.blocked };
+  const q = await quoteCart(cart, { city: city.slice(0, 60), email: email.slice(0, 200) || null, paymentMethod: paymentMethod ?? null });
+  const s = await getSettings();
+  const codAllowed = s.codMaxOrderPaisa === null || q.totalPaisa - q.codFeePaisa + s.codFeePaisa <= s.codMaxOrderPaisa;
+  return { subtotalPaisa: q.subtotalPaisa, discountPaisa: q.discountPaisa, shippingPaisa: q.shippingPaisa, codFeePaisa: q.codFeePaisa, codAllowed, totalPaisa: q.totalPaisa, freeShipping: q.freeShipping, couponApplied: q.couponApplied, couponError: q.couponError, deliveryDays: q.deliveryDays, blocked: q.blocked };
 }
 
 export async function placeOrderAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -41,6 +44,6 @@ export async function placeOrderAction(_prev: ActionState, formData: FormData): 
   }
   await notifyOrder(order.id, "placed");
 
-  if (input.paymentMethod === "MANUAL_TRANSFER") redirect(`/order/${order.trackingToken}?placed=1`);
+  if (input.paymentMethod === "MANUAL_TRANSFER" || input.paymentMethod === "COD") redirect(`/order/${order.trackingToken}?placed=1`);
   redirect(`/order/${order.trackingToken}?placed=1&pay=${input.paymentMethod}`);
 }

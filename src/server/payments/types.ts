@@ -28,7 +28,7 @@ export type VerifiedCallback = {
 };
 
 export interface GatewayProvider {
-  method: Exclude<PaymentMethod, "MANUAL_TRANSFER">;
+  method: Exclude<PaymentMethod, "MANUAL_TRANSFER" | "COD">;
   label: string;
   /** All required env vars present. */
   isConfigured(): boolean;

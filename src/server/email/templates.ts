@@ -27,6 +27,7 @@ export type EmailOrder = {
   subtotalPaisa: number;
   discountPaisa: number;
   shippingPaisa: number;
+  codFeePaisa?: number;
   paymentMethod: string;
   items: { productName: string; variantTitle: string; quantity: number; lineTotalPaisa: number }[];
   shipLine1: string;
@@ -48,6 +49,7 @@ function itemsTable(o: EmailOrder) {
 ${line("Subtotal", formatPKR(o.subtotalPaisa))}
 ${o.discountPaisa ? line("Discount", "-" + formatPKR(o.discountPaisa)) : ""}
 ${line("Shipping", o.shippingPaisa ? formatPKR(o.shippingPaisa) : "Free")}
+${o.codFeePaisa ? line("Cash on delivery fee", formatPKR(o.codFeePaisa)) : ""}
 ${line("Total", formatPKR(o.totalPaisa), true)}</table>`;
 }
 
@@ -55,7 +57,9 @@ const orderLink = (o: EmailOrder) => siteUrl(`/order/${o.trackingToken}`);
 
 export function orderPlacedEmail(store: string, o: EmailOrder) {
   const pay =
-    o.paymentMethod === "MANUAL_TRANSFER"
+    o.paymentMethod === "COD"
+      ? `<p>Your order is confirmed. Please pay <b>${formatPKR(o.totalPaisa)}</b> in cash to the courier on delivery.</p>`
+      : o.paymentMethod === "MANUAL_TRANSFER"
       ? `<p>Please transfer <b>${formatPKR(o.totalPaisa)}</b> to one of our accounts shown on your order page, then upload the payment screenshot and transaction ID there. Your order will be confirmed after we verify the payment.</p>`
       : `<p>If you have not completed payment yet, you can do so from your order page.</p>`;
   return {

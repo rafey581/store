@@ -12,6 +12,16 @@ E-commerce website for selling physical products in Pakistan. Prices in PKR (sto
 | Phase 3: Safepay, PayFast, JazzCash, Easypaisa | Built; **not yet tested against the real sandboxes** (see docs/PAYMENTS.md) |
 | Phase 4: Android admin app (Expo, `mobile/`) | Built; API and screens tested. APK build and push need your Expo/Firebase accounts (see docs/MOBILE.md) |
 
+## Features
+
+**Storefront:** home page with editable hero and announcement bar · categories and sub-categories · search with price / in-stock filters and sorting · product pages with variants, image gallery, related products · cart and coupons · guest or account checkout · shipping fee by city with free-shipping threshold · order tracking page and order lookup · customer self-cancel for unpaid orders · customer account (orders, addresses, password) · editable About / Contact / policy pages · WhatsApp chat button · SEO (metadata, sitemap, robots, Product / Breadcrumb / OnlineStore structured data) · mobile-first layout.
+
+**Payments:** Safepay and PayFast (card), JazzCash and Easypaisa (wallet), bank / wallet transfer with screenshot proof, and cash on delivery (optional COD fee and order limit). One payment module; orders become Paid only from a verified server-side callback or a staff action.
+
+**Admin (`/admin`):** dashboard (sales, orders, pending proofs, to ship, low stock, live / today / total visitors, 14-day chart) · products with images, options and variants · categories · orders with status history, tracking numbers, printable invoice and CSV export · payment proof review · cash-on-delivery collection · customers · coupons · shipping rates · store settings · content pages · staff roles (Owner, Staff) · activity log · Help for Developer.
+
+**Android admin app:** dashboard, orders, proof review, cash collection, quick product edit, push notifications for new orders and proofs.
+
 ---
 
 ## 1. Run it locally
@@ -95,6 +105,9 @@ npm run lint
    curl -H "Authorization: Bearer dev-cron-secret" http://localhost:3000/api/cron/expire-orders
    ```
 6. **Roles:** sign in as `staff@example.com`. Store settings and Staff are hidden and blocked on the server (`/admin/settings` redirects with "You do not have permission").
+7. **Cash on delivery:** as the owner, enable "Cash on delivery" in Store settings (optionally set a COD fee). Place an order choosing Cash on delivery: it goes straight to Processing. In the admin order page, mark it Shipped, then click **Mark cash collected**; the order becomes Paid and stays Shipped.
+8. **Pages and invoice:** Admin → Pages lets the owner edit About / Contact / policy pages (they appear in the footer). On any order, **Print invoice** opens a printable invoice; Orders → **Export CSV** downloads orders for accounting or courier booking.
+9. **Customer cancel:** open an unpaid order's page as the customer and click **Cancel this order**; stock and coupon are released.
 
 ### Testing payments locally (mock gateways)
 

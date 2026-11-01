@@ -9,11 +9,16 @@ export async function getCurrentUser() {
   const session = await auth();
   const id = session?.user?.id;
   if (!id) return null;
-  const user = await db.user.findUnique({
+  const row = await db.user.findUnique({
     where: { id },
-    select: { id: true, email: true, name: true, phone: true, role: true, disabledAt: true },
+    select: { id: true, email: true, name: true, phone: true, role: true, disabledAt: true, passwordChangedAt: true },
   });
-  if (!user || user.disabledAt) return null;
+  if (!row || row.disabledAt) return null;
+  // Sessions created before the last password change/reset are no longer valid.
+  const loginAt = (session as { loginAt?: number }).loginAt ?? 0;
+  if (row.passwordChangedAt && loginAt < row.passwordChangedAt.getTime() - 1000) return null;
+  const { passwordChangedAt: _pc, ...user } = row;
+  void _pc;
   return user;
 }
 

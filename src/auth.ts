@@ -43,6 +43,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.uid = user.id as string;
         token.role = (user as { role?: string }).role ?? "CUSTOMER";
+        token.loginAt = Date.now(); // kept across token refreshes; compared with passwordChangedAt
       }
       return token;
     },
@@ -51,6 +52,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.uid as string;
         (session.user as { role?: string }).role = token.role as string;
       }
+      (session as { loginAt?: number }).loginAt = typeof token.loginAt === "number" ? token.loginAt : 0;
       return session;
     },
   },

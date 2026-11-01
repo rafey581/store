@@ -1,6 +1,6 @@
 import { db } from "@/server/db";
 import { requireMobileStaff, json, apiError } from "@/server/mobile-api";
-import { ADMIN_TRANSITIONS, ownerOnlyTransition } from "@/lib/order-status";
+import { allowedTransitions } from "@/lib/order-status";
 import { can } from "@/lib/permissions";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -17,8 +17,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     },
   });
   if (!o) return apiError("Not found", 404);
-  const allowedTransitions = (ADMIN_TRANSITIONS[o.status] ?? []).filter((to) => !ownerOnlyTransition(o.status, to) || can(u.role, "refunds"));
+  const transitions = allowedTransitions(o, can(u.role, "refunds"));
+  const canCollectCod = o.paymentMethod === "COD" && o.paymentStatus !== "PAID" && ["PROCESSING", "SHIPPED", "DELIVERED"].includes(o.status);
   const { trackingToken: _t, ...rest } = o;
   void _t;
-  return json({ ...rest, allowedTransitions });
+  return json({ ...rest, allowedTransitions: transitions, canCollectCod });
 }

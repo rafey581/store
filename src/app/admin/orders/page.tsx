@@ -40,7 +40,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   ]);
   return (
     <div>
-      <PageHeader title="Orders" description={`${total} orders`} />
+      <PageHeader title="Orders" description={`${total} orders`} actions={<a href={`/api/admin/orders/export${sp.status ? `?status=${encodeURIComponent(sp.status)}` : ""}`} className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold">Export CSV</a>} />
       <form className="mb-4 flex flex-wrap gap-2">
         <input name="q" defaultValue={sp.q} placeholder="Order #, name, email, phone, tracking" className={`${inputCls} max-w-xs`} />
         <select name="status" defaultValue={sp.status ?? ""} className={`${inputCls} max-w-[200px]`}>

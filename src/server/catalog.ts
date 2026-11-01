@@ -29,8 +29,21 @@ export function parseSort(s: string | undefined): SortKey {
 
 export const PAGE_SIZE = 24;
 
-export async function listProducts(opts: { where?: Prisma.ProductWhereInput; sort?: SortKey; page?: number }) {
-  const where: Prisma.ProductWhereInput = { status: "ACTIVE", ...(opts.where ?? {}) };
+export type CatalogFilters = { min?: string; max?: string; inStock?: string };
+
+/** Price (rupees) and stock filters from the query string. */
+export function filterWhere(f: CatalogFilters): Prisma.ProductWhereInput {
+  const w: Prisma.ProductWhereInput = {};
+  const min = Number(f.min);
+  const max = Number(f.max);
+  if (f.min && Number.isFinite(min) && min > 0) w.maxPricePaisa = { gte: Math.round(min * 100) };
+  if (f.max && Number.isFinite(max) && max > 0) w.minPricePaisa = { lte: Math.round(max * 100) };
+  if (f.inStock === "1") w.totalStock = { gt: 0 };
+  return w;
+}
+
+export async function listProducts(opts: { where?: Prisma.ProductWhereInput; sort?: SortKey; page?: number; filters?: CatalogFilters }) {
+  const where: Prisma.ProductWhereInput = { status: "ACTIVE", ...(opts.where ?? {}), ...filterWhere(opts.filters ?? {}) };
   const page = Math.max(1, opts.page ?? 1);
   const [items, total] = await Promise.all([
     db.product.findMany({ where, orderBy: SORTS[opts.sort ?? "newest"], skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE, select: productCardSelect }),

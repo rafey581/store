@@ -9,6 +9,7 @@ All payment code lives in `src/server/payments/`. One module, five methods:
 | JazzCash | Mobile wallet, hosted page | `providers/jazzcash.ts` |
 | Easypaisa | Mobile wallet, hosted page | `providers/easypaisa.ts` |
 | Bank / wallet transfer | Screenshot + transaction ID, admin review | `index.ts` (`submitProof`, `approveProof`, `rejectProof`) |
+| Cash on delivery | Order goes straight to Processing; staff mark cash collected | `index.ts` (`markCodCollected`) |
 
 ## Safety rules (how they are enforced)
 
@@ -20,6 +21,13 @@ All payment code lives in `src/server/payments/`. One module, five methods:
 4. **Callbacks are idempotent.** Each callback is first stored in `PaymentEvent` with a unique `(method, eventKey)`. A replay returns `duplicate`. `markOrderPaid()` locks the order row (`SELECT … FOR UPDATE`) and does nothing if the order is already paid.
 5. **Unpaid orders expire.** `/api/cron/expire-orders` (every 15 min via `vercel.json`) marks `PENDING_PAYMENT` orders past `expiresAt` as `EXPIRED`, returns stock and frees the coupon. If a gateway confirms payment after expiry, the order is still marked paid and stock is re-reserved if available. Otherwise an internal note tells staff to contact the customer or refund.
 6. **Keys live only in environment variables** (see `.env.example`). Store settings only switch methods on or off. A method appears at checkout only when it is switched on **and** its keys are present.
+
+## Cash on delivery
+
+- Switched on in Store settings, with an optional COD fee (added to the order total) and an optional maximum order amount (COD is hidden at checkout above it, and refused on the server).
+- COD orders need no online payment: they start as **Processing**, never expire, and reserve stock immediately.
+- When the courier has collected (or remitted) the cash, staff click **Mark cash collected** on the order (web admin or Android app). This goes through `markOrderPaid()`, so the order becomes Paid while keeping its Shipped/Delivered status, and sales figures include it.
+- Staff can cancel an unpaid COD order (stock and coupon are released). Cancelling a paid order and refunds remain Owner-only.
 
 ## Callback / return URLs to register with each gateway
 

@@ -11,11 +11,13 @@ import { badgeCls, cardCls } from "@/components/ui/styles";
 
 export const metadata: Metadata = { title: "My account", robots: { index: false } };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ passwordChanged?: string }> }) {
   const user = await requireCustomer();
+  const sp = await searchParams;
   const orders = await db.order.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 50, select: { id: true, number: true, trackingToken: true, status: true, totalPaisa: true, createdAt: true } });
   return (
     <div className="space-y-6">
+      {sp.passwordChanged && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Password changed. Other devices have been signed out.</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">My account</h1>
         <div className="flex gap-4 text-sm">

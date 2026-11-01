@@ -32,14 +32,15 @@ export async function shippingFor(city: string | null | undefined, settings?: Se
 
 export type Quote = PricingResult & { lines: CartLine[]; blocked: string | null; deliveryDays: string | null };
 
-export async function quoteCart(cart: Parameters<typeof cartLines>[0], opts: { city?: string | null; email?: string | null }): Promise<Quote> {
+export async function quoteCart(cart: Parameters<typeof cartLines>[0], opts: { city?: string | null; email?: string | null; paymentMethod?: string | null }): Promise<Quote> {
   const lines = cartLines(cart);
   const ok = lines.filter((l) => !l.problem);
   const blocked = lines.length === 0 ? "Your cart is empty." : lines.some((l) => l.problem) ? "Some items in your cart are unavailable. Please update your cart." : null;
   const coupon = await findCoupon(cart?.couponCode);
   const uses = coupon && opts.email ? await couponUsesByEmail(coupon.code, opts.email) : 0;
   const ship = await shippingFor(opts.city);
-  const pricing = computePricing({ lines: ok, coupon, customerCouponUses: uses, shipping: ship ? { feePaisa: ship.feePaisa, freeAbovePaisa: ship.freeAbovePaisa } : null });
+  const codFeePaisa = opts.paymentMethod === "COD" ? (await getSettings()).codFeePaisa : 0;
+  const pricing = computePricing({ lines: ok, coupon, customerCouponUses: uses, shipping: ship ? { feePaisa: ship.feePaisa, freeAbovePaisa: ship.freeAbovePaisa } : null, codFeePaisa });
   return { ...pricing, lines, blocked, deliveryDays: ship ? `${ship.minDays}–${ship.maxDays} working days` : null };
 }
 
@@ -61,7 +62,7 @@ export const checkoutSchema = z.object({
   shipProvince: z.string().trim().max(60).optional().transform((v) => v || null),
   shipPostalCode: z.string().trim().max(10).optional().transform((v) => v || null),
   customerNote: z.string().trim().max(500).optional().transform((v) => v || null),
-  paymentMethod: z.enum(["SAFEPAY", "PAYFAST", "JAZZCASH", "EASYPAISA", "MANUAL_TRANSFER"]),
+  paymentMethod: z.enum(["SAFEPAY", "PAYFAST", "JAZZCASH", "EASYPAISA", "MANUAL_TRANSFER", "COD"]),
 });
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
@@ -84,13 +85,19 @@ export async function placeOrder(opts: { cartId: string; userId: string | null; 
     },
   });
   if (!cart || cart.items.length === 0) throw new CheckoutError("Your cart is empty.");
-  const q = await quoteCart(cart, { city: opts.input.shipCity, email: opts.input.email });
+  const q = await quoteCart(cart, { city: opts.input.shipCity, email: opts.input.email, paymentMethod: opts.input.paymentMethod });
   if (q.blocked) throw new CheckoutError(q.blocked);
+  const isCod = opts.input.paymentMethod === "COD";
+  if (isCod && settings.codMaxOrderPaisa !== null && q.totalPaisa > settings.codMaxOrderPaisa) {
+    throw new CheckoutError("Cash on delivery is not available for this order amount. Please choose another payment method.");
+  }
   const couponCode = cart.couponCode && q.couponApplied ? q.couponApplied : null;
 
   const now = new Date();
-  const expiresAt =
-    opts.input.paymentMethod === "MANUAL_TRANSFER"
+  // COD orders need no online payment, so they never expire; they go straight to Processing.
+  const expiresAt = isCod
+    ? null
+    : opts.input.paymentMethod === "MANUAL_TRANSFER"
       ? new Date(now.getTime() + settings.manualOrderExpiryHours * 3600_000)
       : new Date(now.getTime() + settings.gatewayOrderExpiryMins * 60_000);
 
@@ -128,7 +135,9 @@ export async function placeOrder(opts: { cartId: string; userId: string | null; 
           subtotalPaisa: q.subtotalPaisa,
           discountPaisa: q.discountPaisa,
           shippingPaisa: q.shippingPaisa,
+          codFeePaisa: q.codFeePaisa,
           totalPaisa: q.totalPaisa,
+          status: isCod ? "PROCESSING" : "PENDING_PAYMENT",
           couponCode,
           expiresAt,
           items: {
@@ -143,13 +152,16 @@ export async function placeOrder(opts: { cartId: string; userId: string | null; 
               lineTotalPaisa: l.lineTotalPaisa,
             })),
           },
-          statusEvents: { create: { toStatus: "PENDING_PAYMENT", actorType: "CUSTOMER", actorId: opts.userId, note: "Order placed" } },
+          statusEvents: { create: { toStatus: isCod ? "PROCESSING" : "PENDING_PAYMENT", actorType: "CUSTOMER", actorId: opts.userId, note: isCod ? "Order placed (cash on delivery)" : "Order placed" } },
         },
         include: { items: true },
       });
 
       await tx.inventoryMovement.createMany({ data: q.lines.map((l) => ({ variantId: l.variantId, delta: -l.quantity, reason: "ORDER_RESERVED" as const, orderId: created.id })) });
       if (couponId) await tx.couponRedemption.create({ data: { couponId, orderId: created.id, userId: opts.userId, email: opts.input.email } });
+      if (isCod) {
+        await tx.payment.create({ data: { orderId: created.id, method: "COD", status: "PENDING", amountPaisa: created.totalPaisa, reference: `C${created.number}-${Date.now().toString(36)}` } });
+      }
       if (opts.input.paymentMethod === "MANUAL_TRANSFER") {
         await tx.payment.create({ data: { orderId: created.id, method: "MANUAL_TRANSFER", status: "PENDING", amountPaisa: created.totalPaisa, reference: `M${created.number}-${Date.now().toString(36)}` } });
       }
@@ -230,5 +242,30 @@ export async function expireDueOrders(limit = 100): Promise<number[]> {
 export const STOCK_HELD_STATUSES = STOCK_HELD;
 
 export function methodLabel(m: PaymentMethod): string {
-  return { SAFEPAY: "Card (Safepay)", PAYFAST: "Card (PayFast)", JAZZCASH: "JazzCash", EASYPAISA: "Easypaisa", MANUAL_TRANSFER: "Bank / wallet transfer" }[m];
+  return { SAFEPAY: "Card (Safepay)", PAYFAST: "Card (PayFast)", JAZZCASH: "JazzCash", EASYPAISA: "Easypaisa", MANUAL_TRANSFER: "Bank / wallet transfer", COD: "Cash on delivery" }[m];
+}
+
+/** Customer-initiated cancellation: unpaid orders awaiting payment, or cash-on-delivery orders not yet shipped. */
+export function customerCanCancel(o: { status: OrderStatus; paymentStatus: string; paymentMethod: PaymentMethod }): boolean {
+  if (o.paymentStatus === "PAID") return false;
+  if (o.status === "PENDING_PAYMENT") return true;
+  return o.paymentMethod === "COD" && o.status === "PROCESSING";
+}
+
+export async function cancelOrderByCustomer(trackingToken: string, reason: string | null): Promise<"cancelled" | "not_allowed" | "not_found"> {
+  const order = await db.order.findUnique({ where: { trackingToken } });
+  if (!order) return "not_found";
+  if (!customerCanCancel(order)) return "not_allowed";
+  const ok = await db.$transaction(async (tx) => {
+    const res = await tx.order.updateMany({ where: { id: order.id, status: order.status, paymentStatus: { not: "PAID" } }, data: { status: "CANCELLED", cancelledAt: new Date(), expiresAt: null } });
+    if (res.count !== 1) return false;
+    await releaseStock(tx, order.id, null, "Cancelled by customer");
+    await releaseCoupon(tx, order.id);
+    await tx.payment.updateMany({ where: { orderId: order.id, status: { in: ["INITIATED", "PENDING"] } }, data: { status: "CANCELLED" } });
+    await addEvent(tx, order.id, order.status, "CANCELLED", "CUSTOMER", order.userId, reason ? `Cancelled by customer: ${reason}` : "Cancelled by customer");
+    return true;
+  });
+  if (!ok) return "not_allowed";
+  await notifyOrder(order.id, "status", { status: "CANCELLED", note: "Your order was cancelled as requested." });
+  return "cancelled";
 }

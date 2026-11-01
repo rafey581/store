@@ -34,6 +34,10 @@ async function main() {
     await db.shippingRate.upsert({ where: { cityKey: city.toLowerCase() }, update: {}, create: { city, cityKey: city.toLowerCase(), province, feePaisa: fee * 100, minDays: 2, maxDays: city === "Quetta" ? 7 : 5 } });
   }
 
+  // Starter content pages (About, Contact, policies). Existing pages are never overwritten.
+  const { DEFAULT_PAGES } = await import("../src/server/pages-defaults");
+  for (const p of DEFAULT_PAGES) await db.page.upsert({ where: { slug: p.slug }, update: {}, create: p });
+
   if (!withDemo) return;
 
   await db.user.upsert({ where: { email: "staff@example.com" }, update: {}, create: { email: "staff@example.com", name: "Demo Staff", role: "STAFF", passwordHash: await bcrypt.hash("ChangeMe123!", 12) } });

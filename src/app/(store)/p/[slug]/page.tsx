@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProductBySlug } from "@/server/catalog";
+import { getProductBySlug, productCardSelect } from "@/server/catalog";
+import { db } from "@/server/db";
+import { ProductGrid } from "@/components/store/product-card";
 import { ProductPurchase } from "@/components/store/product-purchase";
 import { siteUrl } from "@/lib/utils";
 import { getSettings } from "@/server/settings";
@@ -23,7 +25,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ProductPage({ params }: Props) {
   const p = await getProductBySlug((await params).slug);
   if (!p || p.variants.length === 0) notFound();
-  const settings = await getSettings();
+  const [settings, related] = await Promise.all([
+    getSettings(),
+    db.product.findMany({ where: { status: "ACTIVE", id: { not: p.id }, ...(p.categoryId ? { categoryId: p.categoryId } : {}) }, orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }], take: 4, select: productCardSelect }),
+  ]);
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: siteUrl("/") },
+      ...(p.category ? [{ "@type": "ListItem", position: 2, name: p.category.name, item: siteUrl(`/c/${p.category.slug}`) }] : []),
+      { "@type": "ListItem", position: p.category ? 3 : 2, name: p.name, item: siteUrl(`/p/${p.slug}`) },
+    ],
+  };
   const options = p.options.map((o) => ({ id: o.id, name: o.name, values: o.values.map((v) => ({ id: v.id, value: v.value })) }));
   const variants = p.variants.map((v) => ({
     id: v.id,
@@ -54,7 +68,7 @@ export default async function ProductPage({ params }: Props) {
   };
   return (
     <div>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([jsonLd, breadcrumb]).replace(/</g, "\\u003c") }} />
       <nav className="mb-4 text-sm text-gray-500" aria-label="Breadcrumb">
         <Link href="/" className="hover:underline">Home</Link>
         {p.category && <> / <Link href={`/c/${p.category.slug}`} className="hover:underline">{p.category.name}</Link></>}
@@ -65,6 +79,12 @@ export default async function ProductPage({ params }: Props) {
         <section className="mt-12 max-w-3xl">
           <h2 className="mb-3 text-lg font-semibold">Description</h2>
           <div className="prose-store whitespace-pre-line text-gray-700">{p.description}</div>
+        </section>
+      )}
+      {related.length > 0 && (
+        <section className="mt-14">
+          <h2 className="mb-4 text-lg font-semibold">You may also like</h2>
+          <ProductGrid items={related} />
         </section>
       )}
     </div>

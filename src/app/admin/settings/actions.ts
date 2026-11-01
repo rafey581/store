@@ -19,6 +19,11 @@ const settingsSchema = z.object({
   lowStockThreshold: z.coerce.number().int().min(0).max(10000),
   gatewayOrderExpiryMins: z.coerce.number().int().min(15).max(1440),
   manualOrderExpiryHours: z.coerce.number().int().min(1).max(240),
+  codFee: z.string().optional(),
+  codMaxOrder: z.string().optional(),
+  heroTitle: z.string().trim().max(120).optional(),
+  heroSubtitle: z.string().trim().max(300).optional(),
+  announcement: z.string().trim().max(160).optional(),
 });
 
 const bool = (fd: FormData, k: string) => fd.get(k) === "on";
@@ -30,6 +35,10 @@ export async function saveSettings(_prev: ActionState, formData: FormData): Prom
   const d = parsed.data;
   const defaultShippingPaisa = rupeesToPaisa(d.defaultShipping);
   if (defaultShippingPaisa === null) return { error: "Enter a valid default shipping fee." };
+  const codFeePaisa = d.codFee ? rupeesToPaisa(d.codFee) : 0;
+  if (codFeePaisa === null) return { error: "Enter a valid cash on delivery fee." };
+  const codMaxOrderPaisa = d.codMaxOrder ? rupeesToPaisa(d.codMaxOrder) : null;
+  if (d.codMaxOrder && codMaxOrderPaisa === null) return { error: "Enter a valid COD order limit." };
   if (d.supportEmail && !z.string().email().safeParse(d.supportEmail).success) return { error: "Support email is not valid." };
   if (d.orderEmailBcc && !z.string().email().safeParse(d.orderEmailBcc).success) return { error: "New-order notification email is not valid." };
   await db.storeSettings.update({
@@ -51,6 +60,12 @@ export async function saveSettings(_prev: ActionState, formData: FormData): Prom
       enableJazzcash: bool(formData, "enableJazzcash"),
       enableEasypaisa: bool(formData, "enableEasypaisa"),
       enableManualTransfer: bool(formData, "enableManualTransfer"),
+      enableCod: bool(formData, "enableCod"),
+      codFeePaisa,
+      codMaxOrderPaisa,
+      heroTitle: d.heroTitle || null,
+      heroSubtitle: d.heroSubtitle || null,
+      announcement: d.announcement || null,
     },
   });
   await audit(user.id, "settings.update", "StoreSettings", "1");

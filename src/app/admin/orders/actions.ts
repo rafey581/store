@@ -46,3 +46,13 @@ export async function approveGatewayPaymentAction(formData: FormData) {
   const p = await db.payment.findUnique({ where: { id: paymentId }, select: { orderId: true } });
   if (p) revalidatePath(`/admin/orders/${p.orderId}`);
 }
+
+export async function markCodCollectedAction(formData: FormData) {
+  const user = await requireStaff("orders");
+  const orderId = String(formData.get("orderId") ?? "");
+  const note = String(formData.get("note") ?? "").trim().slice(0, 200);
+  const { markCodCollected } = await import("@/server/payments");
+  const r = await markCodCollected(orderId, user.id, note || undefined);
+  await audit(user.id, "order.cod_collected", "Order", orderId, { result: r, note });
+  revalidatePath(`/admin/orders/${orderId}`);
+}

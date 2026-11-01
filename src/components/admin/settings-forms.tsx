@@ -8,6 +8,7 @@ import { inputCls, labelCls, cardCls } from "@/components/ui/styles";
 export type SettingsValues = {
   storeName: string; supportEmail: string; supportPhone: string; whatsappNumber: string; address: string; orderEmailBcc: string;
   defaultShipping: string; freeShippingAbove: string; lowStockThreshold: number; gatewayOrderExpiryMins: number; manualOrderExpiryHours: number;
+  codFee: string; codMaxOrder: string; heroTitle: string; heroSubtitle: string; announcement: string;
   toggles: { key: string; label: string; enabled: boolean; configured: boolean; env: string }[];
 };
 
@@ -24,6 +25,12 @@ export function SettingsForm({ s }: { s: SettingsValues }) {
         <div className="sm:col-span-2"><label className={labelCls}>Address (shown in footer)</label><textarea name="address" rows={2} defaultValue={s.address} className={inputCls} /></div>
         <div className="sm:col-span-2"><label className={labelCls}>Email new-order notifications to</label><input name="orderEmailBcc" defaultValue={s.orderEmailBcc} placeholder="orders@yourstore.pk" className={inputCls} /></div>
       </section>
+      <section className={`${cardCls} grid gap-4 p-5`}>
+        <h2 className="font-semibold">Home page</h2>
+        <div><label className={labelCls}>Announcement bar (optional)</label><input name="announcement" defaultValue={s.announcement} maxLength={160} placeholder="Free delivery on orders over Rs 5,000" className={inputCls} /></div>
+        <div><label className={labelCls}>Hero title</label><input name="heroTitle" defaultValue={s.heroTitle} maxLength={120} placeholder={`Welcome to ${s.storeName}`} className={inputCls} /></div>
+        <div><label className={labelCls}>Hero text</label><textarea name="heroSubtitle" rows={2} maxLength={300} defaultValue={s.heroSubtitle} className={inputCls} /></div>
+      </section>
       <section className={`${cardCls} grid gap-4 p-5 sm:grid-cols-3`}>
         <h2 className="font-semibold sm:col-span-3">Shipping, stock and order expiry</h2>
         <div><label className={labelCls}>Default shipping fee (Rs)</label><input name="defaultShipping" defaultValue={s.defaultShipping} inputMode="decimal" className={inputCls} /></div>
@@ -35,6 +42,10 @@ export function SettingsForm({ s }: { s: SettingsValues }) {
       <section className={`${cardCls} space-y-3 p-5`}>
         <h2 className="font-semibold">Payment methods</h2>
         <p className="text-sm text-gray-600">Gateway API keys are read from environment variables only and are never stored in the database. A method appears at checkout only if it is enabled here and its keys are configured.</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div><label className={labelCls}>Cash on delivery fee (Rs)</label><input name="codFee" defaultValue={s.codFee} inputMode="decimal" placeholder="0" className={inputCls} /></div>
+          <div><label className={labelCls}>Cash on delivery max order (Rs)</label><input name="codMaxOrder" defaultValue={s.codMaxOrder} inputMode="decimal" placeholder="No limit" className={inputCls} /></div>
+        </div>
         {s.toggles.map((t) => (
           <label key={t.key} className="flex items-start gap-3 rounded-lg border p-3 text-sm">
             <input type="checkbox" name={t.key} defaultChecked={t.enabled} className="mt-0.5" />

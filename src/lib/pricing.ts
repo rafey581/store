@@ -27,6 +27,7 @@ export type PricingInput = {
   coupon?: PricingCoupon | null;
   customerCouponUses?: number; // redemptions by this email
   shipping: PricingShipping | null; // null = city not chosen yet
+  codFeePaisa?: number; // cash-on-delivery charge, added to the total
   now?: Date;
 };
 
@@ -34,6 +35,7 @@ export type PricingResult = {
   subtotalPaisa: number;
   discountPaisa: number;
   shippingPaisa: number;
+  codFeePaisa: number;
   totalPaisa: number;
   couponApplied: string | null;
   couponError: string | null;
@@ -95,11 +97,14 @@ export function computePricing(input: PricingInput): PricingResult {
     }
   }
 
+  const codFee = Math.max(0, input.codFeePaisa ?? 0);
+  if (!Number.isInteger(codFee)) throw new Error("Invalid COD fee");
   return {
     subtotalPaisa: subtotal,
     discountPaisa: discount,
     shippingPaisa: shipping,
-    totalPaisa: subtotal - discount + shipping,
+    codFeePaisa: codFee,
+    totalPaisa: subtotal - discount + shipping + codFee,
     couponApplied,
     couponError,
     freeShipping,

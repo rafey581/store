@@ -5,13 +5,15 @@ import { siteUrl } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [products, categories] = await Promise.all([
+  const [products, categories, pages] = await Promise.all([
     db.product.findMany({ where: { status: "ACTIVE" }, select: { slug: true, updatedAt: true } }),
     db.category.findMany({ where: { isActive: true }, select: { slug: true, updatedAt: true } }),
+    db.page.findMany({ where: { isPublished: true }, select: { slug: true, updatedAt: true } }),
   ]);
   return [
     { url: siteUrl("/"), changeFrequency: "daily", priority: 1 },
     ...categories.map((c) => ({ url: siteUrl(`/c/${c.slug}`), lastModified: c.updatedAt, changeFrequency: "weekly" as const, priority: 0.7 })),
+    ...pages.map((p) => ({ url: siteUrl(`/pages/${p.slug}`), lastModified: p.updatedAt, changeFrequency: "monthly" as const, priority: 0.3 })),
     ...products.map((p) => ({ url: siteUrl(`/p/${p.slug}`), lastModified: p.updatedAt, changeFrequency: "weekly" as const, priority: 0.8 })),
   ];
 }

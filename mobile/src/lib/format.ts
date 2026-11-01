@@ -56,4 +56,5 @@ export const METHOD_LABEL: Record<string, string> = {
   JAZZCASH: "JazzCash",
   EASYPAISA: "Easypaisa",
   MANUAL_TRANSFER: "Bank / wallet transfer",
+  COD: "Cash on delivery",
 };

@@ -16,7 +16,7 @@ function authorized(req: Request) {
 
 export async function GET(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const pending = await db.payment.findMany({ where: { status: "PENDING", method: { not: "MANUAL_TRANSFER" }, createdAt: { gte: new Date(Date.now() - 48 * 3600_000) } }, select: { id: true }, take: 50 });
+  const pending = await db.payment.findMany({ where: { status: "PENDING", method: { notIn: ["MANUAL_TRANSFER", "COD"] }, createdAt: { gte: new Date(Date.now() - 48 * 3600_000) } }, select: { id: true }, take: 50 });
   let reconciled = 0;
   for (const p of pending) if ((await reconcilePayment(p.id)) === "applied") reconciled++;
   const expired = await expireDueOrders(200);

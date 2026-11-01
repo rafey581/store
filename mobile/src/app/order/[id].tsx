@@ -10,13 +10,14 @@ import { Button, Card, Chip, Field, Notice, Row, StatusBadge, confirmAction, s, 
 type Order = {
   id: string; number: number; status: string; paymentStatus: string; paymentMethod: string; createdAt: string;
   email: string; customerName: string; phone: string; shipLine1: string; shipLine2: string | null; shipCity: string; shipProvince: string | null; customerNote: string | null;
-  subtotalPaisa: number; discountPaisa: number; shippingPaisa: number; totalPaisa: number; couponCode: string | null;
+  subtotalPaisa: number; discountPaisa: number; shippingPaisa: number; codFeePaisa: number; totalPaisa: number; couponCode: string | null;
   courierName: string | null; trackingNumber: string | null; expiresAt: string | null;
   items: { id: string; productName: string; variantTitle: string; sku: string; quantity: number; lineTotalPaisa: number }[];
   statusEvents: { id: string; fromStatus: string | null; toStatus: string; note: string | null; actorType: string; createdAt: string }[];
   proofs: { id: string; status: string; transactionId: string; amountClaimedPaisa: number }[];
   payments: { id: string; method: string; status: string; amountPaisa: number; reference: string; failureReason: string | null }[];
   allowedTransitions: string[];
+  canCollectCod: boolean;
 };
 
 export default function OrderDetailScreen() {
@@ -56,6 +57,22 @@ function OrderDetail() {
     }, "Confirm", to === "CANCELLED" || to === "REFUNDED");
   };
 
+  const collectCod = () => {
+    if (!o) return;
+    confirmAction("Cash collected?", `Confirm ${formatPKR(o.totalPaisa)} was collected for order #${o.number}.`, async () => {
+      setBusy(true);
+      try {
+        const r = await api<{ ok: string }>(`/api/mobile/orders/${o.id}/cod-collected`, { method: "POST", body: {} });
+        setMsg({ text: r.ok, tone: "ok" });
+        await reload();
+      } catch (e) {
+        setMsg({ text: e instanceof Error ? e.message : "Failed", tone: "error" });
+      } finally {
+        setBusy(false);
+      }
+    }, "Confirm");
+  };
+
   return (
     <ScrollView style={s.screen} contentContainerStyle={{ padding: 12 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} />} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: o ? `Order #${o.number}` : "Order" }} />
@@ -69,6 +86,8 @@ function OrderDetail() {
               <StatusBadge status={o.status} />
             </View>
             <Text style={s.muted}>{formatDate(o.createdAt)} · {METHOD_LABEL[o.paymentMethod]}</Text>
+            {o.paymentMethod === "COD" && <Text style={[s.muted, { marginTop: 4 }]}>{o.paymentStatus === "PAID" ? "Cash collected" : `Collect ${formatPKR(o.totalPaisa)} in cash`}</Text>}
+            {o.canCollectCod && <View style={{ marginTop: 8 }}><Button title="Mark cash collected" loading={busy} onPress={collectCod} /></View>}
             {o.status === "PAYMENT_REVIEW" && <View style={{ marginTop: 8 }}><Button title="Review payment proof" onPress={() => router.push("/(tabs)/proofs")} /></View>}
           </Card>
 
@@ -97,6 +116,7 @@ function OrderDetail() {
               <Row label="Subtotal" value={formatPKR(o.subtotalPaisa)} />
               {o.discountPaisa > 0 && <Row label={`Discount${o.couponCode ? ` (${o.couponCode})` : ""}`} value={`-${formatPKR(o.discountPaisa)}`} />}
               <Row label="Shipping" value={o.shippingPaisa ? formatPKR(o.shippingPaisa) : "Free"} />
+              {o.codFeePaisa > 0 && <Row label="COD fee" value={formatPKR(o.codFeePaisa)} />}
               <Row label="Total" value={formatPKR(o.totalPaisa)} />
             </View>
           </Card>

@@ -3,7 +3,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { db } from "@/server/db";
-import { expireDueOrders, methodLabel } from "@/server/orders";
+import { customerCanCancel, expireDueOrders, methodLabel } from "@/server/orders";
+import { CancelOrder } from "@/components/store/cancel-order";
 import { availableMethods, reconcilePayment } from "@/server/payments";
 import { formatPKR, paisaToRupeeInput } from "@/lib/money";
 import { formatDate, orderLabel } from "@/lib/utils";
@@ -15,7 +16,7 @@ import { badgeCls, cardCls, btnPrimary } from "@/components/ui/styles";
 export const metadata: Metadata = { title: "Your order", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ token: string }>; searchParams: Promise<{ placed?: string; payment?: string; error?: string; pay?: string }> };
+type Props = { params: Promise<{ token: string }>; searchParams: Promise<{ placed?: string; payment?: string; error?: string; pay?: string; cancelled?: string }> };
 
 export default async function OrderPage({ params, searchParams }: Props) {
   const { token } = await params;
@@ -27,7 +28,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
   if (order.status === "PENDING_PAYMENT" && order.expiresAt && order.expiresAt < new Date()) await expireDueOrders(20);
   if (order.status === "PENDING_PAYMENT") {
     // If a gateway callback was missed, ask the provider directly (server-to-server).
-    const pending = await db.payment.findFirst({ where: { orderId: order.id, status: "PENDING", method: { not: "MANUAL_TRANSFER" } }, orderBy: { createdAt: "desc" } });
+    const pending = await db.payment.findFirst({ where: { orderId: order.id, status: "PENDING", method: { notIn: ["MANUAL_TRANSFER", "COD"] } }, orderBy: { createdAt: "desc" } });
     if (pending) await reconcilePayment(pending.id);
   }
 
@@ -47,6 +48,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {sp.pay && o.status === "PENDING_PAYMENT" && gatewayMethods.includes(sp.pay as never) && <AutoRedirect href={`/checkout/pay/${o.trackingToken}?method=${sp.pay}`} label={methodLabel(sp.pay as never)} />}
+      {sp.cancelled && o.status === "CANCELLED" && <p className="rounded-xl bg-gray-100 p-4 text-gray-800">Your order has been cancelled. Any reserved items have been released.</p>}
       {sp.placed && !sp.pay && <p className="rounded-xl bg-emerald-50 p-4 text-emerald-800">Thank you! Your order has been placed. Save this page link to track your order. We have also emailed it to you.</p>}
       {sp.payment === "returned" && o.status === "PENDING_PAYMENT" && <p className="rounded-xl bg-amber-50 p-4 text-amber-800">We have not received confirmation of your payment yet. If you completed the payment, this page will update within a few minutes. Otherwise you can try again below.</p>}
       {sp.error && <p className="rounded-xl bg-red-50 p-4 text-red-700">{sp.error.slice(0, 200)}</p>}
@@ -95,6 +97,9 @@ export default async function OrderPage({ params, searchParams }: Props) {
         </section>
       )}
 
+      {o.paymentMethod === "COD" && o.paymentStatus !== "PAID" && ["PROCESSING", "SHIPPED"].includes(o.status) && (
+        <p className={`${cardCls} border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900`}>Your order is confirmed. Please keep <b>{formatPKR(o.totalPaisa)}</b> ready to pay in cash when the courier delivers it.</p>
+      )}
       {o.status === "PAYMENT_REVIEW" && <p className={`${cardCls} p-5 text-sm`}>We received your payment proof (transaction {lastProof?.transactionId}). Our team is verifying it, usually within a few hours during business days.</p>}
 
       {(o.trackingNumber || o.courierName) && (
@@ -122,6 +127,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
             <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatPKR(o.subtotalPaisa)}</dd></div>
             {o.discountPaisa > 0 && <div className="flex justify-between text-emerald-700"><dt>Discount {o.couponCode && `(${o.couponCode})`}</dt><dd>-{formatPKR(o.discountPaisa)}</dd></div>}
             <div className="flex justify-between"><dt>Shipping</dt><dd>{o.shippingPaisa ? formatPKR(o.shippingPaisa) : "Free"}</dd></div>
+            {o.codFeePaisa > 0 && <div className="flex justify-between"><dt>Cash on delivery fee</dt><dd>{formatPKR(o.codFeePaisa)}</dd></div>}
             <div className="flex justify-between text-base font-bold"><dt>Total</dt><dd>{formatPKR(o.totalPaisa)}</dd></div>
           </dl>
         </section>
@@ -152,6 +158,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
           ))}
         </ol>
       </section>
+      {customerCanCancel(o) && <div className="text-center"><CancelOrder token={o.trackingToken} /></div>}
       <p className="text-center text-sm"><Link href="/" className="text-brand-700 hover:underline">Continue shopping</Link></p>
     </div>
   );

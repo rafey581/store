@@ -6,6 +6,7 @@ import { quoteCart, methodLabel } from "@/server/orders";
 import { availableMethods } from "@/server/payments";
 import { getCurrentUser } from "@/server/auth/session";
 import { CheckoutForm } from "@/components/store/checkout-form";
+import { getSettings } from "@/server/settings";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ const DESCRIPTIONS: Record<string, string> = {
   JAZZCASH: "Pay from your JazzCash mobile wallet.",
   EASYPAISA: "Pay from your Easypaisa mobile wallet.",
   MANUAL_TRANSFER: "Transfer to our bank account or wallet, then upload the receipt. Your order is confirmed after we verify it.",
+  COD: "Pay in cash to the courier when your order arrives.",
 };
 
 export default async function CheckoutPage() {
@@ -34,7 +36,9 @@ export default async function CheckoutPage() {
     shipProvince: address?.province ?? "",
     shipPostalCode: address?.postalCode ?? "",
   };
-  const q = await quoteCart(cart, { city: initial.shipCity, email: initial.email });
+  const q = await quoteCart(cart, { city: initial.shipCity, email: initial.email, paymentMethod: methods[0] ?? null });
+  const settings = await getSettings();
+  const codAllowed = settings.codMaxOrderPaisa === null || q.totalPaisa - q.codFeePaisa + settings.codFeePaisa <= settings.codMaxOrderPaisa;
   if (q.blocked) redirect("/cart");
   return (
     <div>
@@ -45,7 +49,7 @@ export default async function CheckoutPage() {
         cities={cities.map((c) => c.city)}
         methods={methods.map((m) => ({ value: m, label: methodLabel(m), description: DESCRIPTIONS[m] }))}
         lines={q.lines.map((l) => ({ name: l.variantTitle !== "Default" ? `${l.productName} (${l.variantTitle})` : l.productName, qty: l.quantity, total: l.lineTotalPaisa }))}
-        initialQuote={{ subtotalPaisa: q.subtotalPaisa, discountPaisa: q.discountPaisa, shippingPaisa: q.shippingPaisa, totalPaisa: q.totalPaisa, freeShipping: q.freeShipping, couponApplied: q.couponApplied, couponError: q.couponError, deliveryDays: q.deliveryDays, blocked: q.blocked }}
+        initialQuote={{ subtotalPaisa: q.subtotalPaisa, discountPaisa: q.discountPaisa, shippingPaisa: q.shippingPaisa, codFeePaisa: q.codFeePaisa, codAllowed, totalPaisa: q.totalPaisa, freeShipping: q.freeShipping, couponApplied: q.couponApplied, couponError: q.couponError, deliveryDays: q.deliveryDays, blocked: q.blocked }}
       />
     </div>
   );

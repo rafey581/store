@@ -41,6 +41,11 @@ describe("computePricing", () => {
     expect(r.couponError).toMatch(/Minimum order/);
     expect(r.discountPaisa).toBe(0);
   });
+  it("adds the cash-on-delivery fee to the total", () => {
+    const r = computePricing({ lines, shipping: { feePaisa: 20000, freeAbovePaisa: null }, codFeePaisa: 10000 });
+    expect(r.codFeePaisa).toBe(10000);
+    expect(r.totalPaisa).toBe(899700 + 20000 + 10000);
+  });
   it("rejects bad line data", () => {
     expect(() => computePricing({ lines: [{ unitPricePaisa: 10.5, quantity: 1 }], shipping: null })).toThrow();
     expect(() => computePricing({ lines: [{ unitPricePaisa: 100, quantity: 0 }], shipping: null })).toThrow();

@@ -20,11 +20,12 @@ export default async function SettingsPage() {
     { key: "enableJazzcash", label: "JazzCash (wallet)", enabled: s.enableJazzcash, configured: isGatewayConfigured("JAZZCASH"), env: "JAZZCASH_*" },
     { key: "enableEasypaisa", label: "Easypaisa (wallet)", enabled: s.enableEasypaisa, configured: isGatewayConfigured("EASYPAISA"), env: "EASYPAISA_*" },
     { key: "enableManualTransfer", label: "Bank / wallet transfer with proof upload", enabled: s.enableManualTransfer, configured: true, env: "" },
+    { key: "enableCod", label: "Cash on delivery", enabled: s.enableCod, configured: true, env: "" },
   ];
   return (
     <div className="max-w-4xl space-y-6">
       <PageHeader title="Store settings" />
-      <SettingsForm s={{ storeName: s.storeName, supportEmail: s.supportEmail ?? "", supportPhone: s.supportPhone ?? "", whatsappNumber: s.whatsappNumber ?? "", address: s.address ?? "", orderEmailBcc: s.orderEmailBcc ?? "", defaultShipping: paisaToRupeeInput(s.defaultShippingPaisa), freeShippingAbove: paisaToRupeeInput(s.freeShippingAbovePaisa), lowStockThreshold: s.lowStockThreshold, gatewayOrderExpiryMins: s.gatewayOrderExpiryMins, manualOrderExpiryHours: s.manualOrderExpiryHours, toggles }} />
+      <SettingsForm s={{ storeName: s.storeName, supportEmail: s.supportEmail ?? "", supportPhone: s.supportPhone ?? "", whatsappNumber: s.whatsappNumber ?? "", address: s.address ?? "", orderEmailBcc: s.orderEmailBcc ?? "", defaultShipping: paisaToRupeeInput(s.defaultShippingPaisa), freeShippingAbove: paisaToRupeeInput(s.freeShippingAbovePaisa), lowStockThreshold: s.lowStockThreshold, gatewayOrderExpiryMins: s.gatewayOrderExpiryMins, manualOrderExpiryHours: s.manualOrderExpiryHours, codFee: paisaToRupeeInput(s.codFeePaisa || null), codMaxOrder: paisaToRupeeInput(s.codMaxOrderPaisa), heroTitle: s.heroTitle ?? "", heroSubtitle: s.heroSubtitle ?? "", announcement: s.announcement ?? "", toggles }} />
       <section className={`${cardCls} space-y-4 p-5`}>
         <h2 className="font-semibold">Bank and wallet accounts for manual transfer</h2>
         {accounts.map((a) => (

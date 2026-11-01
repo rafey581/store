@@ -30,7 +30,7 @@ export const ADMIN_TRANSITIONS: Partial<Record<OrderStatus, OrderStatus[]>> = {
   PENDING_PAYMENT: ["CANCELLED"],
   PAYMENT_REVIEW: ["CANCELLED"],
   PAID: ["PROCESSING", "SHIPPED", "CANCELLED", "REFUNDED"],
-  PROCESSING: ["SHIPPED", "CANCELLED", "REFUNDED"],
+  PROCESSING: ["SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"],
   SHIPPED: ["DELIVERED", "REFUNDED"],
   DELIVERED: ["REFUNDED"],
 };
@@ -38,9 +38,17 @@ export const ADMIN_TRANSITIONS: Partial<Record<OrderStatus, OrderStatus[]>> = {
 /** Statuses in which stock is still reserved and can be put back. */
 export const STOCK_HELD: OrderStatus[] = ["PENDING_PAYMENT", "PAYMENT_REVIEW", "PAID", "PROCESSING"];
 
-/** Transitions only the Owner may perform. */
-export function ownerOnlyTransition(from: OrderStatus, to: OrderStatus): boolean {
+/** Transitions only the Owner may perform: refunds, and cancelling an order that was paid. */
+export function ownerOnlyTransition(from: OrderStatus, to: OrderStatus, paymentStatus: string = "PAID"): boolean {
   if (to === "REFUNDED") return true;
-  if (to === "CANCELLED" && (from === "PAID" || from === "PROCESSING")) return true;
+  if (to === "CANCELLED" && paymentStatus === "PAID" && (from === "PAID" || from === "PROCESSING")) return true;
   return false;
+}
+
+/** Status changes this user may make on this order (single source for web admin, API and UI). */
+export function allowedTransitions(order: { status: OrderStatus; paymentStatus: string }, canRefund: boolean): OrderStatus[] {
+  return (ADMIN_TRANSITIONS[order.status] ?? []).filter((to) => {
+    if (to === "REFUNDED" && order.paymentStatus !== "PAID") return false; // nothing to refund
+    return !ownerOnlyTransition(order.status, to, order.paymentStatus) || canRefund;
+  });
 }

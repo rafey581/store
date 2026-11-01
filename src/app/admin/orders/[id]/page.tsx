@@ -6,11 +6,12 @@ import { can } from "@/lib/permissions";
 import { methodLabel } from "@/server/orders";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusForm, FulfilmentForm } from "@/components/admin/order-forms";
-import { approveGatewayPaymentAction } from "../actions";
+import { approveGatewayPaymentAction, markCodCollectedAction } from "../actions";
+import { ConfirmButton } from "@/components/admin/confirm-button";
 import { ProofReview } from "@/components/admin/proof-review";
 import { formatPKR } from "@/lib/money";
 import { formatDate, orderLabel } from "@/lib/utils";
-import { ADMIN_TRANSITIONS, ORDER_STATUS_COLOR, ORDER_STATUS_LABEL, ownerOnlyTransition } from "@/lib/order-status";
+import { ORDER_STATUS_COLOR, ORDER_STATUS_LABEL, allowedTransitions } from "@/lib/order-status";
 import { badgeCls, cardCls } from "@/components/ui/styles";
 
 export const metadata = { title: "Order" };
@@ -31,7 +32,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
   });
   if (!o) notFound();
   const canVerify = can(user.role, "refunds");
-  const options = (ADMIN_TRANSITIONS[o.status] ?? []).filter((to) => !ownerOnlyTransition(o.status, to) || can(user.role, "refunds"));
+  const options = allowedTransitions(o, can(user.role, "refunds"));
   const txnIds = o.proofs.map((p) => p.transactionId);
   const duplicates = txnIds.length ? await db.paymentProof.findMany({ where: { transactionId: { in: txnIds }, orderId: { not: o.id } }, select: { transactionId: true, order: { select: { id: true, number: true } } } }) : [];
 
@@ -40,7 +41,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
       <PageHeader
         title={`Order ${orderLabel(o.number)}`}
         description={`Placed ${formatDate(o.createdAt)} · ${methodLabel(o.paymentMethod)}`}
-        actions={<><span className={`${badgeCls} px-3 py-1 text-sm ${ORDER_STATUS_COLOR[o.status]}`}>{ORDER_STATUS_LABEL[o.status]}</span><Link href={`/order/${o.trackingToken}`} target="_blank" className="text-sm text-brand-700 hover:underline">Customer view</Link></>}
+        actions={<><span className={`${badgeCls} px-3 py-1 text-sm ${ORDER_STATUS_COLOR[o.status]}`}>{ORDER_STATUS_LABEL[o.status]}</span><span className={`${badgeCls} px-3 py-1 text-sm ${o.paymentStatus === "PAID" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-700"}`}>{o.paymentStatus === "PAID" ? "Paid" : o.paymentStatus === "REFUNDED" ? "Refunded" : "Unpaid"}</span><Link href={`/print/orders/${o.id}`} target="_blank" className="text-sm text-brand-700 hover:underline">Print invoice</Link><Link href={`/order/${o.trackingToken}`} target="_blank" className="text-sm text-brand-700 hover:underline">Customer view</Link></>}
       />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
@@ -71,6 +72,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatPKR(o.subtotalPaisa)}</dd></div>
               {o.discountPaisa > 0 && <div className="flex justify-between"><dt>Discount ({o.couponCode})</dt><dd>-{formatPKR(o.discountPaisa)}</dd></div>}
               <div className="flex justify-between"><dt>Shipping</dt><dd>{formatPKR(o.shippingPaisa)}</dd></div>
+              {o.codFeePaisa > 0 && <div className="flex justify-between"><dt>COD fee</dt><dd>{formatPKR(o.codFeePaisa)}</dd></div>}
               <div className="flex justify-between font-bold"><dt>Total</dt><dd>{formatPKR(o.totalPaisa)}</dd></div>
             </dl>
           </section>
@@ -113,6 +115,23 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
           </section>
         </div>
         <div className="space-y-6">
+          {o.paymentMethod === "COD" && (
+            <section className={`${cardCls} p-5`}>
+              <h2 className="mb-2 font-semibold">Cash on delivery</h2>
+              {o.paymentStatus === "PAID" ? (
+                <p className="text-sm text-emerald-700">Cash collected{o.paidAt ? ` on ${formatDate(o.paidAt)}` : ""}.</p>
+              ) : ["PROCESSING", "SHIPPED", "DELIVERED"].includes(o.status) ? (
+                <form action={markCodCollectedAction} className="space-y-2">
+                  <input type="hidden" name="orderId" value={o.id} />
+                  <p className="text-sm text-gray-600">Collect <b>{formatPKR(o.totalPaisa)}</b>. Mark it once the courier has collected or remitted the cash.</p>
+                  <input name="note" placeholder="Note (e.g. courier remittance ref)" className="w-full rounded-lg border px-3 py-2 text-sm" />
+                  <ConfirmButton message={`Confirm ${formatPKR(o.totalPaisa)} cash was collected for this order?`} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">Mark cash collected</ConfirmButton>
+                </form>
+              ) : (
+                <p className="text-sm text-gray-500">Not collected.</p>
+              )}
+            </section>
+          )}
           <section className={`${cardCls} p-5`}><h2 className="mb-3 font-semibold">Update status</h2><StatusForm orderId={o.id} options={options} courierName={o.courierName ?? ""} trackingNumber={o.trackingNumber ?? ""} /></section>
           <section className={`${cardCls} space-y-1 p-5 text-sm`}>
             <h2 className="mb-2 font-semibold">Customer</h2>
