@@ -6,6 +6,7 @@ import { can } from "@/lib/permissions";
 import { methodLabel } from "@/server/orders";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusForm, FulfilmentForm } from "@/components/admin/order-forms";
+import { approveGatewayPaymentAction } from "../actions";
 import { ProofReview } from "@/components/admin/proof-review";
 import { formatPKR } from "@/lib/money";
 import { formatDate, orderLabel } from "@/lib/utils";
@@ -29,6 +30,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
     },
   });
   if (!o) notFound();
+  const canVerify = can(user.role, "refunds");
   const options = (ADMIN_TRANSITIONS[o.status] ?? []).filter((to) => !ownerOnlyTransition(o.status, to) || can(user.role, "refunds"));
   const txnIds = o.proofs.map((p) => p.transactionId);
   const duplicates = txnIds.length ? await db.paymentProof.findMany({ where: { transactionId: { in: txnIds }, orderId: { not: o.id } }, select: { transactionId: true, order: { select: { id: true, number: true } } } }) : [];
@@ -78,7 +80,17 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               <table className="w-full text-sm">
                 <thead className="text-left text-xs uppercase text-gray-500"><tr><th>Method</th><th>Reference</th><th>Status</th><th>Amount</th><th>Date</th></tr></thead>
                 <tbody>{o.payments.map((p) => (
-                  <tr key={p.id} className="border-t"><td className="py-2">{methodLabel(p.method)}</td><td className="font-mono text-xs">{p.reference}{p.providerTxnId && <div className="text-gray-400">{p.providerTxnId}</div>}</td><td>{p.status}{p.failureReason && <div className="text-xs text-red-600">{p.failureReason}</div>}</td><td>{formatPKR(p.amountPaisa)}</td><td className="text-gray-500">{formatDate(p.createdAt)}</td></tr>
+                  <tr key={p.id} className="border-t"><td className="py-2">{methodLabel(p.method)}</td><td className="font-mono text-xs">{p.reference}{p.providerTxnId && <div className="text-gray-400">{p.providerTxnId}</div>}</td><td>{p.status}{p.failureReason && <div className="text-xs text-red-600">{p.failureReason}</div>}
+                    {canVerify && p.method !== "MANUAL_TRANSFER" && p.status !== "SUCCEEDED" && o.paymentStatus !== "PAID" && (
+                      <details className="mt-1 text-xs"><summary className="cursor-pointer text-brand-700">Verify manually</summary>
+                        <form action={approveGatewayPaymentAction} className="mt-1 space-y-1">
+                          <input type="hidden" name="paymentId" value={p.id} />
+                          <input name="note" required minLength={3} placeholder="Checked in gateway portal: txn id…" className="w-full rounded border px-2 py-1" />
+                          <button className="rounded bg-brand-600 px-2 py-1 font-semibold text-white">Mark paid</button>
+                        </form>
+                      </details>
+                    )}
+                  </td><td>{formatPKR(p.amountPaisa)}</td><td className="text-gray-500">{formatDate(p.createdAt)}</td></tr>
                 ))}</tbody>
               </table>
             )}

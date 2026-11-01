@@ -108,7 +108,7 @@ export async function initiateGatewayPayment(orderToken: string, method: Payment
       returnUrl: siteUrl(`/api/payments/${method.toLowerCase()}/return?ref=${reference}`),
       callbackUrl: siteUrl(`/api/payments/${method.toLowerCase()}/callback`),
     });
-    await db.payment.update({ where: { id: payment.id }, data: { status: "PENDING", initPayload: (result.providerData ?? {}) as Prisma.InputJsonValue } });
+    await db.payment.update({ where: { id: payment.id }, data: { status: "PENDING", initPayload: (result.providerData ?? {}) as Prisma.InputJsonValue, ...(result.providerTxnId ? { providerTxnId: result.providerTxnId } : {}) } });
     return result;
   } catch (e) {
     await db.payment.update({ where: { id: payment.id }, data: { status: "FAILED", failureReason: String(e).slice(0, 500) } });
@@ -123,12 +123,17 @@ export type CallbackOutcome = "applied" | "duplicate" | "invalid_signature" | "u
 export async function handleGatewayCallback(method: PaymentMethod, v: VerifiedCallback): Promise<CallbackOutcome> {
   // 1. Log the event. The unique (method, eventKey) makes replays no-ops.
   let eventId: string;
+  const eventKey = v.eventKey.slice(0, 300);
   try {
-    const ev = await db.paymentEvent.create({ data: { method, eventKey: v.eventKey.slice(0, 300), signatureValid: v.signatureValid, payload: (v.payload ?? {}) as Prisma.InputJsonValue } });
+    const ev = await db.paymentEvent.create({ data: { method, eventKey, signatureValid: v.signatureValid, payload: (v.payload ?? {}) as Prisma.InputJsonValue } });
     eventId = ev.id;
   } catch (e) {
-    if (e instanceof P.PrismaClientKnownRequestError && e.code === "P2002") return "duplicate";
-    throw e;
+    if (!(e instanceof P.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+    // Seen before. If it was fully processed, it's a replay; if processing crashed midway, retry it
+    // (everything below is idempotent: payment status checks + the order row lock in markOrderPaid).
+    const prev = await db.paymentEvent.findUnique({ where: { method_eventKey: { method, eventKey } } });
+    if (!prev || prev.processedAt) return "duplicate";
+    eventId = prev.id;
   }
   const finish = async (result: CallbackOutcome, paymentId?: string) => {
     await db.paymentEvent.update({ where: { id: eventId }, data: { result, processedAt: new Date(), paymentId: paymentId ?? null } });
@@ -136,8 +141,11 @@ export async function handleGatewayCallback(method: PaymentMethod, v: VerifiedCa
   };
 
   if (!v.signatureValid) return finish("invalid_signature");
-  if (!v.reference) return finish("unknown_reference");
-  const payment = await db.payment.findUnique({ where: { reference: v.reference } });
+  const payment = v.reference
+    ? await db.payment.findUnique({ where: { reference: v.reference } })
+    : v.providerTxnId
+      ? await db.payment.findFirst({ where: { method, providerTxnId: v.providerTxnId } })
+      : null;
   if (!payment || payment.method !== method) return finish("unknown_reference");
 
   if (v.status === "PENDING") return finish("pending", payment.id);
@@ -175,6 +183,16 @@ export async function reconcilePayment(paymentId: string): Promise<CallbackOutco
   });
   if (!v) return null;
   return handleGatewayCallback(payment.method, v);
+}
+
+/** Owner-only escape hatch: approve a gateway attempt after checking it in the gateway's merchant portal. */
+export async function approveGatewayPaymentManually(paymentId: string, adminId: string, note: string): Promise<"approved" | "not_found" | "already"> {
+  const payment = await db.payment.findUnique({ where: { id: paymentId } });
+  if (!payment || payment.method === "MANUAL_TRANSFER") return "not_found";
+  if (payment.status === "SUCCEEDED") return "already";
+  const r = await db.$transaction((tx) => markOrderPaid(tx, { orderId: payment.orderId, paymentId, actorType: "ADMIN", actorId: adminId, note: `Gateway payment verified manually by admin: ${note}` }));
+  if (r === "paid") await notifyOrder(payment.orderId, "paid");
+  return r === "not_found" ? "not_found" : r === "paid" ? "approved" : "already";
 }
 
 // ---------------------------------------------------------------------------

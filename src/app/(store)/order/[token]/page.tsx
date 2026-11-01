@@ -9,12 +9,13 @@ import { formatPKR, paisaToRupeeInput } from "@/lib/money";
 import { formatDate, orderLabel } from "@/lib/utils";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_COLOR } from "@/lib/order-status";
 import { ProofForm } from "@/components/store/proof-form";
+import { AutoRedirect } from "@/components/store/auto-redirect";
 import { badgeCls, cardCls, btnPrimary } from "@/components/ui/styles";
 
 export const metadata: Metadata = { title: "Your order", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ token: string }>; searchParams: Promise<{ placed?: string; payment?: string; error?: string }> };
+type Props = { params: Promise<{ token: string }>; searchParams: Promise<{ placed?: string; payment?: string; error?: string; pay?: string }> };
 
 export default async function OrderPage({ params, searchParams }: Props) {
   const { token } = await params;
@@ -45,7 +46,8 @@ export default async function OrderPage({ params, searchParams }: Props) {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      {sp.placed && <p className="rounded-xl bg-emerald-50 p-4 text-emerald-800">Thank you! Your order has been placed. Save this page link to track your order. We have also emailed it to you.</p>}
+      {sp.pay && o.status === "PENDING_PAYMENT" && gatewayMethods.includes(sp.pay as never) && <AutoRedirect href={`/checkout/pay/${o.trackingToken}?method=${sp.pay}`} label={methodLabel(sp.pay as never)} />}
+      {sp.placed && !sp.pay && <p className="rounded-xl bg-emerald-50 p-4 text-emerald-800">Thank you! Your order has been placed. Save this page link to track your order. We have also emailed it to you.</p>}
       {sp.payment === "returned" && o.status === "PENDING_PAYMENT" && <p className="rounded-xl bg-amber-50 p-4 text-amber-800">We have not received confirmation of your payment yet. If you completed the payment, this page will update within a few minutes. Otherwise you can try again below.</p>}
       {sp.error && <p className="rounded-xl bg-red-50 p-4 text-red-700">{sp.error.slice(0, 200)}</p>}
 

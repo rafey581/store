@@ -87,3 +87,15 @@ export async function saveFulfilment(_prev: ActionState, formData: FormData): Pr
   revalidatePath(`/admin/orders/${d.orderId}`);
   return { ok: "Saved." };
 }
+
+export async function approveGatewayPaymentAction(formData: FormData) {
+  const user = await requireStaff("refunds"); // Owner only
+  const paymentId = String(formData.get("paymentId") ?? "");
+  const note = String(formData.get("note") ?? "").trim().slice(0, 200);
+  if (note.length < 3) return;
+  const { approveGatewayPaymentManually } = await import("@/server/payments");
+  const r = await approveGatewayPaymentManually(paymentId, user.id, note);
+  await audit(user.id, "payment.manual_approve", "Payment", paymentId, { result: r, note });
+  const p = await db.payment.findUnique({ where: { id: paymentId }, select: { orderId: true } });
+  if (p) revalidatePath(`/admin/orders/${p.orderId}`);
+}

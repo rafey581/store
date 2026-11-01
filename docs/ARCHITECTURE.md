@@ -1,7 +1,7 @@
-# Architecture (pre-Phase 1 proposal, for review)
+# Architecture
 
-> Status: **proposal**. Only `prisma/schema.prisma`, `prisma.config.ts` and this document exist so far.
-> Nothing below `src/` or `mobile/` has been written yet.
+> Status: Phases 1–3 (website, admin, payments) are built. `mobile/` (Phase 4, Android admin app) is not built yet.
+> Small differences from the original proposal: local uploads are served by `/media/[...key]`; the proof review page is `/admin/proofs`.
 
 ## Stack
 

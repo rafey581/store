@@ -9,9 +9,10 @@ export type InitiateContext = {
   callbackUrl: string;
 };
 
-export type InitiateResult =
-  | { type: "redirect"; url: string; providerData?: Record<string, unknown> }
-  | { type: "form"; action: string; fields: Record<string, string>; providerData?: Record<string, unknown> };
+export type InitiateResult = (
+  | { type: "redirect"; url: string }
+  | { type: "form"; action: string; fields: Record<string, string> }
+) & { providerData?: Record<string, unknown>; providerTxnId?: string };
 
 /** Result of a callback that has been verified server-side (signature and/or a
  *  server-to-server status query). Only SUCCEEDED results can mark an order paid. */

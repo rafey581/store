@@ -42,5 +42,5 @@ export async function placeOrderAction(_prev: ActionState, formData: FormData): 
   await notifyOrder(order.id, "placed");
 
   if (input.paymentMethod === "MANUAL_TRANSFER") redirect(`/order/${order.trackingToken}?placed=1`);
-  redirect(`/checkout/pay/${order.trackingToken}?method=${input.paymentMethod}`);
+  redirect(`/order/${order.trackingToken}?placed=1&pay=${input.paymentMethod}`);
 }
